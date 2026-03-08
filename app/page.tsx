@@ -23,6 +23,19 @@ import {
   BarChart3,
 } from "lucide-react";
 
+type AssetKey = "NVDA" | "BTC" | "TSLA";
+type TabKey = "overview" | "evidence" | "fade";
+
+const tabItems: Array<{
+  key: TabKey;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}> = [
+  { key: "overview", label: "Overview", Icon: Eye },
+  { key: "evidence", label: "Evidence", Icon: BarChart3 },
+  { key: "fade", label: "Fade Board", Icon: ShieldAlert },
+];
+
 const assets = {
   NVDA: {
     symbol: "NVDA",
@@ -84,7 +97,7 @@ const assets = {
       ["YouTube creator layer", 68],
       ["X / social pulse", 62],
       ["Reddit communities", 54],
-    ],
+    ] as Array<[string, number]>,
     fadeBoard: [
       {
         name: "Late TV momentum chatter",
@@ -163,7 +176,7 @@ const assets = {
       ["X / social pulse", 75],
       ["YouTube creator layer", 71],
       ["Reddit communities", 58],
-    ],
+    ] as Array<[string, number]>,
     fadeBoard: [
       {
         name: "Tourist crypto hype",
@@ -241,7 +254,7 @@ const assets = {
       ["YouTube creator layer", 73],
       ["Price confirmation", 49],
       ["Reddit communities", 61],
-    ],
+    ] as Array<[string, number]>,
     fadeBoard: [
       {
         name: "Headline-chasing TV panels",
@@ -308,15 +321,15 @@ function MiniMetric({
 
 export default function NarrivPage() {
   const [query, setQuery] = useState("NVDA");
-  const [selected, setSelected] = useState<keyof typeof assets>("NVDA");
-  const [tab, setTab] = useState<"overview" | "evidence" | "fade">("overview");
+  const [selected, setSelected] = useState<AssetKey>("NVDA");
+  const [tab, setTab] = useState<TabKey>("overview");
 
   const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
   const asset = assets[selected];
 
   function runSearch() {
     if (normalized in assets) {
-      setSelected(normalized as keyof typeof assets);
+      setSelected(normalized as AssetKey);
       return;
     }
     if (normalized.includes("NVIDIA")) {
@@ -365,7 +378,7 @@ export default function NarrivPage() {
                     key={item.symbol}
                     onClick={() => {
                       if (item.symbol in assets) {
-                        setSelected(item.symbol as keyof typeof assets);
+                        setSelected(item.symbol as AssetKey);
                         setQuery(item.symbol);
                       }
                     }}
@@ -454,7 +467,7 @@ export default function NarrivPage() {
                       <button
                         key={ticker}
                         onClick={() => {
-                          setSelected(ticker as keyof typeof assets);
+                          setSelected(ticker as AssetKey);
                           setQuery(ticker);
                         }}
                         className={`rounded-full border px-4 py-2 text-sm transition ${
@@ -561,16 +574,10 @@ export default function NarrivPage() {
 
                 <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-7 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
                   <div className="flex flex-wrap gap-2">
-                    {[
-                      ["overview", "Overview", Eye],
-                      ["evidence", "Evidence", BarChart3],
-                      ["fade", "Fade Board", ShieldAlert],
-                    ].map(([key, label, Icon]) => (
+                    {tabItems.map(({ key, label, Icon }) => (
                       <button
-                        key={String(key)}
-                        onClick={() =>
-                          setTab(key as "overview" | "evidence" | "fade")
-                        }
+                        key={key}
+                        onClick={() => setTab(key)}
                         className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
                           tab === key
                             ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
@@ -741,16 +748,14 @@ export default function NarrivPage() {
                   </div>
                   <div className="mt-5 space-y-4">
                     {asset.sourceMix.map(([label, value]) => (
-                      <div key={String(label)}>
+                      <div key={label}>
                         <div className="mb-2 flex items-center justify-between text-sm text-white/65">
                           <span>{label}</span>
                           <span>{value}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-white/8">
                           <div
-                            className={`h-2 rounded-full ${barTone(
-                              Number(value)
-                            )}`}
+                            className={`h-2 rounded-full ${barTone(value)}`}
                             style={{ width: `${value}%` }}
                           />
                         </div>
@@ -780,3 +785,4 @@ export default function NarrivPage() {
     </main>
   );
 }
+
