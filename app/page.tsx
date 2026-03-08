@@ -1,28 +1,32 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Sparkles,
   ArrowUpRight,
   ArrowDownRight,
   Clock3,
-  Radar,
   ShieldAlert,
   TrendingUp,
   TrendingDown,
-  Newspaper,
   Activity,
   ChevronRight,
-  Bell,
-  RefreshCw,
+  CheckCircle2,
+  LineChart,
+  Database,
+  BrainCircuit,
+  Globe2,
+  Gauge,
   Flame,
-  Eye,
-  BarChart3,
+  X,
 } from "lucide-react";
 
-type AssetKey = "NVDA" | "BTC" | "TSLA";
-type TabKey = "overview" | "evidence" | "fade";
+type Suggestion = {
+  symbol: string;
+  name: string;
+  type: string;
+};
 
 type ChangedItem = {
   label: string;
@@ -30,21 +34,14 @@ type ChangedItem = {
   tone: "up" | "down";
 };
 
-type EvidenceItem = {
-  kind: "News" | "Market" | "AI";
-  title: string;
+type ExplainItem = {
+  label: string;
   detail: string;
-  tone: "Bullish" | "Bearish" | "Mixed";
 };
 
-type SourceContribution = {
+type FadeSignal = {
   label: string;
   value: number;
-};
-
-type FadeItem = {
-  name: string;
-  score: number;
   note: string;
 };
 
@@ -53,122 +50,130 @@ type ReportResponse = {
   name: string;
   price: string;
   move: string;
-  updated: string;
   verdict: string;
   whyNow: string;
+  dominantTheme: string;
+  themeShift: string;
+  earlyLate: number;
+  earlyLateLabel: string;
+  earlyLateDrivers: string[];
   strength: number;
   entry: number;
   crowding: number;
   confidence: number;
-  fade: number;
+  attentionAcceleration: number;
+  priceConfirmation: number;
+  institutionalQuality: number;
+  retailHeat: number;
+  rsiStretch: number;
+  updated: string;
+  trust: string;
   changed: ChangedItem[];
   bull: string[];
   bear: string[];
-  evidence: EvidenceItem[];
-  sourceMix: SourceContribution[];
-  fadeBoard: FadeItem[];
+  explainers: ExplainItem[];
+  chart: number[];
+  drivers: Array<[string, number]>;
+  fadeSignals: FadeSignal[];
+  fadeTake: string;
 };
-
-const tabItems: Array<{
-  key: TabKey;
-  label: string;
-  Icon: React.ComponentType<{ className?: string }>;
-}> = [
-  { key: "overview", label: "Overview", Icon: Eye },
-  { key: "evidence", label: "Evidence", Icon: BarChart3 },
-  { key: "fade", label: "Fade Board", Icon: ShieldAlert },
-];
-
-const watchlist = [
-  { symbol: "NVDA", score: 78, move: "+1.2%" },
-  { symbol: "BTC", score: 84, move: "+3.8%" },
-  { symbol: "TSLA", score: 65, move: "-1.7%" },
-  { symbol: "ETH", score: 74, move: "+2.4%" },
-  { symbol: "MSTR", score: 80, move: "+4.1%" },
-];
 
 const fallbackReport: ReportResponse = {
   symbol: "NVDA",
   name: "NVIDIA",
   price: "$154.20",
   move: "+1.2%",
-  updated: "loading...",
   verdict: "Loading live report",
   whyNow:
-    "Narriv is pulling live market data and recent headlines to generate a fresh report.",
+    "Narriv is fetching live quote, recent headlines, and building a timing read from the latest data.",
+  dominantTheme: "Loading dominant theme",
+  themeShift: "Waiting for live inputs to determine what changed.",
+  earlyLate: 55,
+  earlyLateLabel: "Balanced",
+  earlyLateDrivers: ["Fetching quote", "Fetching headlines", "Scoring timing"],
   strength: 78,
   entry: 58,
   crowding: 72,
   confidence: 81,
-  fade: 41,
+  attentionAcceleration: 71,
+  priceConfirmation: 83,
+  institutionalQuality: 76,
+  retailHeat: 62,
+  rsiStretch: 69,
+  updated: "just now",
+  trust:
+    "Powered by live quote, recent headlines, rolling baselines, and synthesized signal scoring",
   changed: [
-    { label: "Fetching live quote", value: "+1", tone: "up" },
-    { label: "Refreshing headline flow", value: "+1", tone: "up" },
-    { label: "Calculating entry quality", value: "+1", tone: "up" },
+    { label: "Fetching quote", value: "+1", tone: "up" },
+    { label: "Refreshing headlines", value: "+1", tone: "up" },
+    { label: "Calculating timing", value: "+1", tone: "up" },
   ],
   bull: [
     "Live report generation is in progress",
-    "Price and headline data will refresh on search",
-    "This page is now wired for real backend data",
+    "Price and headline context will refresh after search",
+    "This page is wired to a real lookup + report flow",
   ],
   bear: [
-    "Social platforms are not live yet in this version",
-    "Crowding and fade are currently derived from the first real data layer",
-    "This is a shipping MVP, not the full ingestion stack",
+    "This is still an MVP, not the full social ingestion stack",
+    "Some assets will have thinner recent headline coverage",
+    "The report is only as strong as the latest available data",
   ],
-  evidence: [
+  explainers: [
     {
-      kind: "Market",
-      title: "Loading live market pulse",
-      detail: "Current price and move will appear after the first fetch completes.",
-      tone: "Mixed",
+      label: "Strength",
+      detail: "Built from price confirmation, headline flow, and signal quality.",
     },
     {
-      kind: "News",
-      title: "Loading recent headlines",
-      detail: "Recent news flow is being fetched from the backend.",
-      tone: "Mixed",
+      label: "Entry",
+      detail: "Penalized when crowding or technical stretch gets too elevated.",
     },
     {
-      kind: "AI",
-      title: "Generating decision brief",
-      detail: "OpenAI is shaping the verdict and supporting sections.",
-      tone: "Mixed",
+      label: "Confidence",
+      detail: "Higher when the dominant theme is coherent and price confirms it.",
     },
   ],
-  sourceMix: [
-    { label: "Price confirmation", value: 75 },
-    { label: "Headline flow", value: 60 },
-    { label: "Signal freshness", value: 80 },
-    { label: "Crowding estimate", value: 62 },
-    { label: "AI synthesis confidence", value: 78 },
+  chart: [92, 95, 97, 99, 102, 106, 111, 118, 124, 132, 139, 145, 148, 151, 154],
+  drivers: [
+    ["Price confirmation", 75],
+    ["Headline flow", 66],
+    ["Institutional attention", 62],
+    ["Retail/social heat", 54],
+    ["Overcrowding risk", 58],
   ],
-  fadeBoard: [
+  fadeSignals: [
     {
-      name: "Late consensus media chatter",
-      score: 67,
-      note: "Useful as a crowding input when the story is widely known.",
+      label: "Consensus overcrowding",
+      value: 58,
+      note: "The setup is being evaluated against crowding and attention concentration.",
     },
     {
-      name: "Retail euphoria risk",
-      score: 73,
-      note: "Higher when attention and momentum run hotter than clarity.",
+      label: "RSI stretch",
+      value: 61,
+      note: "Technical heat is estimated from recent price behavior.",
     },
     {
-      name: "Jim Cramer counter-watch",
-      score: 52,
-      note: "Novelty input only, not a mechanical trading signal.",
+      label: "Late media pickup",
+      value: 49,
+      note: "Coverage breadth and novelty are part of the fade read.",
+    },
+    {
+      label: "Retail heat",
+      value: 52,
+      note: "This layer will improve as broader social inputs are added.",
+    },
+    {
+      label: "Price divergence",
+      value: 35,
+      note: "Price vs narrative quality is part of the timing framework.",
     },
   ],
+  fadeTake:
+    "Fade signals are being assembled from live price and headline context.",
 };
 
 function tonePill(score: number) {
-  if (score >= 80) {
-    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
-  }
-  if (score >= 65) {
-    return "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
-  }
+  if (score >= 80) return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
+  if (score >= 65) return "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
   return "border-amber-400/20 bg-amber-400/10 text-amber-300";
 }
 
@@ -188,11 +193,11 @@ function MiniMetric({
   sub: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[26px] sm:p-5">
+    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4 sm:p-5">
       <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
         {label}
       </div>
-      <div className="mt-2 text-2xl font-semibold text-white sm:mt-3 sm:text-3xl">
+      <div className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
         {value}
       </div>
       <div className="mt-1 text-sm text-white/52">{sub}</div>
@@ -200,29 +205,162 @@ function MiniMetric({
   );
 }
 
-export default function NarrivPage() {
+function MiniChart({
+  data,
+  positive = true,
+}: {
+  data: number[];
+  positive?: boolean;
+}) {
+  const width = 420;
+  const height = 150;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+
+  const points = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * width;
+      const y = height - ((v - min) / range) * (height - 18) - 9;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  const areaPoints = `0,${height} ${points} ${width},${height}`;
+  const lineColor = positive ? "#22d3ee" : "#fb7185";
+  const areaColor = positive
+    ? "rgba(34,211,238,0.14)"
+    : "rgba(251,113,133,0.14)";
+
+  return (
+    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 sm:text-[11px]">
+            Price context
+          </div>
+          <div className="mt-1 text-sm text-white/60">1M trend</div>
+        </div>
+        <div
+          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
+            positive
+              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+              : "border-rose-400/20 bg-rose-400/10 text-rose-300"
+          }`}
+        >
+          <LineChart className="h-4 w-4" />
+          {positive ? "Uptrend intact" : "Trend under pressure"}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full sm:h-40">
+        <polygon points={areaPoints} fill={areaColor} />
+        <polyline
+          fill="none"
+          stroke={lineColor}
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          points={points}
+        />
+      </svg>
+      <div className="mt-3 flex items-center justify-between text-xs text-white/35">
+        <span>1M ago</span>
+        <span>today</span>
+      </div>
+    </div>
+  );
+}
+
+function EarlyLateGauge({
+  value,
+  label,
+  drivers,
+}: {
+  value: number;
+  label: string;
+  drivers: string[];
+}) {
+  const display = Math.max(0, Math.min(100, value));
+
+  return (
+    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
+            Early or late
+          </div>
+          <div className="mt-1 text-sm text-white/55">
+            Composite timing indicator
+          </div>
+        </div>
+        <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-sm text-white/65">
+          {label}
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="relative h-3 overflow-hidden rounded-full bg-[linear-gradient(90deg,#22c55e_0%,#22d3ee_35%,#f59e0b_70%,#f43f5e_100%)]">
+          <div
+            className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#02060b] shadow-[0_0_0_4px_rgba(255,255,255,0.06)]"
+            style={{ left: `calc(${display}% - 10px)` }}
+          />
+        </div>
+        <div className="mt-3 flex items-center justify-between text-xs text-white/40">
+          <span>Early</span>
+          <span>Balanced</span>
+          <span>Late</span>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {drivers.map((driver) => (
+          <span
+            key={driver}
+            className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/65"
+          >
+            {driver}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-4 text-sm text-white/68">
+        Aggregates price action, headline intensity, attention concentration,
+        crowding, and entry quality into a single timing read.
+      </div>
+    </div>
+  );
+}
+
+export default function NarrivLandingV2() {
   const [query, setQuery] = useState("NVDA");
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [report, setReport] = useState<ReportResponse>(fallbackReport);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState("");
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
 
-  async function loadReport(asset: string) {
+  async function loadReport(symbol: string) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`/api/report?asset=${encodeURIComponent(asset)}`, {
+      const res = await fetch(`/api/report?asset=${encodeURIComponent(symbol)}`, {
         cache: "no-store",
       });
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || "Failed to load report");
       }
-      const data: ReportResponse = await res.json();
+
       setReport(data);
+      setSelectedSymbol(data.symbol);
       setQuery(data.symbol);
+      setShowSuggestions(false);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load live report";
@@ -232,20 +370,69 @@ export default function NarrivPage() {
     }
   }
 
-  function runSearch() {
-    if (!normalized) return;
-    loadReport(normalized);
+  async function fetchSuggestions(q: string) {
+    try {
+      setSearchLoading(true);
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error("Search failed");
+      setSuggestions(Array.isArray(data?.results) ? data.results : []);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSearchLoading(false);
+    }
   }
 
   useEffect(() => {
     loadReport("NVDA");
   }, []);
 
+  useEffect(() => {
+    if (!showSuggestions) return;
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(query.trim());
+    }, 200);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, showSuggestions]);
+
+  function selectSuggestion(item: Suggestion) {
+    setSelectedSymbol(item.symbol);
+    setQuery(item.symbol);
+    setShowSuggestions(false);
+    loadReport(item.symbol);
+  }
+
+  function runSearch() {
+    if (!normalized) return;
+    if (suggestions.length > 0) {
+      selectSuggestion(suggestions[0]);
+      return;
+    }
+    loadReport(normalized);
+  }
+
+  const watchlist = [
+    { symbol: "NVDA", score: 78, move: "+1.2%" },
+    { symbol: "BTC", score: 84, move: "+3.8%" },
+    { symbol: "TSLA", score: 65, move: "-1.7%" },
+    { symbol: "AAPL", score: 74, move: "-0.8%" },
+    { symbol: "MSFT", score: 76, move: "+0.9%" },
+  ];
+
   return (
     <main className="min-h-screen bg-[#02060b] text-white">
-      <div className="mx-auto max-w-[1560px] px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
-        <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-6">
-          <aside className="rounded-[24px] border border-white/8 bg-[#080c13]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur sm:rounded-[30px] sm:p-5">
+      <div className="mx-auto max-w-[1480px] px-4 py-4 sm:px-6 sm:py-6">
+        <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
+          <aside className="rounded-[28px] border border-white/8 bg-[#080c13]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-5">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
@@ -263,7 +450,7 @@ export default function NarrivPage() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-[20px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4 sm:mt-6 sm:rounded-[24px]">
+            <div className="mt-5 rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4">
               <div className="flex items-center gap-2 text-sm text-white/55">
                 <Activity className="h-4 w-4 text-emerald-300" />
                 Tracked Assets
@@ -295,104 +482,156 @@ export default function NarrivPage() {
               </div>
             </div>
 
-            <div className="mt-5 rounded-[20px] border border-white/8 bg-white/[0.03] p-4 sm:mt-6 sm:rounded-[24px]">
+            <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
               <div className="flex items-center gap-2 text-sm text-white/55">
-                <Bell className="h-4 w-4 text-cyan-300" />
-                Suggested Alerts
+                <CheckCircle2 className="h-4 w-4 text-cyan-300" />
+                Why people trust it
               </div>
-              <div className="mt-4 space-y-3 text-sm text-white/75">
+              <div className="mt-4 space-y-3 text-sm text-white/72">
                 <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Alert when strength rises above 80
+                  Live market quote context
                 </div>
                 <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Alert on price / attention divergence
+                  Recent headline ingestion
                 </div>
                 <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Alert when fade pressure spikes
+                  Signal synthesis and timing read
                 </div>
               </div>
             </div>
           </aside>
 
-          <section className="space-y-4 sm:space-y-6">
-            <div className="rounded-[24px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-4 shadow-[0_0_100px_rgba(0,0,0,0.45)] sm:rounded-[36px] sm:p-6 lg:p-7">
-              <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
+          <section className="space-y-6">
+            <div className="rounded-[32px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-5 shadow-[0_0_100px_rgba(0,0,0,0.45)] sm:p-7">
+              <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
                 <div className="max-w-3xl">
-                  <div className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/65 sm:px-4 sm:text-[11px]">
-                    Robinhood feature demo
+                  <div className="inline-flex items-center rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
+                    Turn market noise into a decision
                   </div>
-                  <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:mt-5 sm:text-5xl lg:text-6xl">
-                    Narrative signals,{" "}
-                    <span className="text-cyan-300">ranked and usable.</span>
+                  <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-6xl">
+                    Know if the story behind an asset is{" "}
+                    <span className="text-cyan-300">worth betting on.</span>
                   </h1>
-                  <p className="mt-4 max-w-2xl text-base leading-7 text-white/60 sm:mt-5 sm:text-lg sm:leading-8">
-                    The fastest way to know whether the story around an asset is
-                    getting stronger, weaker, or too crowded to trust.
+                  <p className="mt-5 max-w-2xl text-base leading-7 text-white/62 sm:text-lg sm:leading-8">
+                    Narriv blends price action, headlines, attention, and
+                    crowding into a simple read: strong, weak, early, or late.
                   </p>
+                  <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/48">
+                    <span className="inline-flex items-center gap-2">
+                      <Database className="h-4 w-4 text-cyan-300" /> Live
+                      market data
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <Globe2 className="h-4 w-4 text-cyan-300" /> Headline
+                      ingestion
+                    </span>
+                    <span className="inline-flex items-center gap-2">
+                      <BrainCircuit className="h-4 w-4 text-cyan-300" /> Signal
+                      synthesis
+                    </span>
+                  </div>
                 </div>
 
-                <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur sm:rounded-[28px]">
+                <div className="rounded-[26px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur">
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <div className="flex flex-1 items-center gap-3 rounded-[18px] bg-black/30 px-4 sm:rounded-[20px]">
-                      <Search className="h-5 w-5 text-white/40" />
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") runSearch();
-                        }}
-                        className="h-14 w-full bg-transparent text-base outline-none placeholder:text-white/30 sm:text-lg"
-                        placeholder="Try NVDA, BTC, or TSLA"
-                      />
+                    <div className="relative flex-1">
+                      <div className="flex items-center gap-3 rounded-[18px] bg-black/30 px-4 sm:rounded-[20px]">
+                        <Search className="h-5 w-5 text-white/40" />
+                        <input
+                          value={query}
+                          onChange={(e) => {
+                            setQuery(e.target.value);
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => setShowSuggestions(true)}
+                          onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                          className="h-14 w-full bg-transparent text-base outline-none placeholder:text-white/30 sm:text-lg"
+                          placeholder="Search ticker or asset name"
+                        />
+                        {query ? (
+                          <button
+                            onClick={() => {
+                              setQuery("");
+                              setShowSuggestions(true);
+                              setSuggestions([]);
+                            }}
+                            className="text-white/35 transition hover:text-white/60"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        ) : null}
+                      </div>
+
+                      {showSuggestions ? (
+                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-[22px] border border-white/8 bg-[#0a0f17]/98 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur">
+                          {searchLoading ? (
+                            <div className="px-4 py-3 text-sm text-white/45">
+                              Searching assets...
+                            </div>
+                          ) : suggestions.length > 0 ? (
+                            suggestions.slice(0, 8).map((item) => (
+                              <button
+                                key={`${item.symbol}-${item.name}`}
+                                onClick={() => selectSuggestion(item)}
+                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition hover:bg-white/[0.05] ${
+                                  selectedSymbol === item.symbol
+                                    ? "bg-white/[0.04]"
+                                    : ""
+                                }`}
+                              >
+                                <div>
+                                  <div className="font-medium text-white">
+                                    {item.symbol}
+                                  </div>
+                                  <div className="text-sm text-white/45">
+                                    {item.name}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <span className="rounded-full border border-white/8 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45">
+                                    {item.type}
+                                  </span>
+                                  <ChevronRight className="h-4 w-4 text-white/25" />
+                                </div>
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-4 py-3 text-sm text-white/45">
+                              No matches yet. Press enter to try the ticker directly.
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
+
                     <button
                       onClick={runSearch}
-                      className="h-14 rounded-[18px] bg-[#20d7ff] px-5 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:px-6 sm:text-lg"
+                      className="h-14 rounded-[18px] bg-[#20d7ff] px-6 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:text-lg"
                     >
                       {loading ? "Loading..." : "Generate Report"}
                     </button>
                   </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {(["NVDA", "BTC", "TSLA"] as AssetKey[]).map((ticker) => (
-                      <button
-                        key={ticker}
-                        onClick={() => loadReport(ticker)}
-                        className={`rounded-full border px-4 py-2 text-sm transition ${
-                          report.symbol === ticker
-                            ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
-                            : "border-white/8 bg-white/[0.03] text-white/60 hover:bg-white/[0.05]"
-                        }`}
-                      >
-                        {ticker}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => loadReport(report.symbol)}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-sm text-white/45"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Refresh live
-                    </button>
-                  </div>
-
-                  {error ? (
-                    <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
-                      {error}
-                    </div>
-                  ) : null}
+                  <p className="mt-3 text-sm text-white/45">
+                    Search stocks, ETFs, or major crypto and get a live timing read.
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-4 2xl:grid-cols-[1.25fr_0.75fr] 2xl:gap-6">
-              <section className="space-y-4 sm:space-y-6">
-                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-7">
-                  <div className="flex flex-col gap-5 border-b border-white/8 pb-5 sm:gap-6 sm:pb-6 xl:flex-row xl:items-start xl:justify-between">
+            {error ? (
+              <div className="rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-rose-200">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
+              <section className="space-y-6">
+                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-5 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:p-7">
+                  <div className="flex flex-col gap-6 border-b border-white/8 pb-6 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200">
-                        <Radar className="h-3.5 w-3.5" />
-                        {report.symbol} decision brief
+                        <Gauge className="h-3.5 w-3.5" />
+                        {report.symbol} live signal read
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                         <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -408,8 +647,7 @@ export default function NarrivPage() {
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/45">
                         <span className="inline-flex items-center gap-2">
-                          <Clock3 className="h-4 w-4" />
-                          Updated {report.updated}
+                          <Clock3 className="h-4 w-4" /> {report.updated}
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 ${
@@ -429,193 +667,74 @@ export default function NarrivPage() {
                       <p className="mt-5 text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
                         {report.whyNow}
                       </p>
-                    </div>
-
-                    <div className="w-full min-w-0 xl:w-auto xl:min-w-[240px]">
-                      <div
-                        className={`rounded-[24px] border p-5 text-center backdrop-blur sm:rounded-[30px] sm:p-6 ${tonePill(
-                          report.strength
-                        )}`}
-                      >
-                        <div className="text-[11px] uppercase tracking-[0.22em] text-white/50">
-                          Verdict
-                        </div>
-                        <div className="mt-3 text-xl font-semibold text-white sm:text-2xl">
-                          {report.verdict}
-                        </div>
-                        <div className="mt-4 text-sm text-white/70">
-                          Strength {report.strength}
-                        </div>
-                      </div>
+                      <p className="mt-4 text-sm text-white/45">{report.trust}</p>
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 sm:mt-6 md:grid-cols-2 xl:grid-cols-4">
-                    <MiniMetric
-                      label="Strength"
-                      value={report.strength}
-                      sub="story power"
-                    />
-                    <MiniMetric
-                      label="Entry"
-                      value={report.entry}
-                      sub="from here"
-                    />
-                    <MiniMetric
-                      label="Crowding"
-                      value={report.crowding}
-                      sub="consensus pressure"
-                    />
-                    <MiniMetric
-                      label="Confidence"
-                      value={report.confidence}
-                      sub="signal quality"
-                    />
-                  </div>
-                </div>
-
-                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-7">
-                  <div className="flex flex-wrap gap-2">
-                    {tabItems.map(({ key, label, Icon }) => (
-                      <button
-                        key={key}
-                        onClick={() => setTab(key)}
-                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
-                          tab === key
-                            ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
-                            : "border-white/8 bg-white/[0.03] text-white/55 hover:bg-white/[0.05]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                        {label}
-                      </button>
-                    ))}
+                  <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <MiniMetric label="Strength" value={report.strength} sub="how powerful the story is" />
+                    <MiniMetric label="Entry" value={report.entry} sub="how attractive it looks now" />
+                    <MiniMetric label="Crowding" value={report.crowding} sub="how consensus it feels" />
+                    <MiniMetric label="Confidence" value={report.confidence} sub="how trustworthy the signal is" />
                   </div>
 
-                  {tab === "overview" && (
-                    <div className="mt-5 grid gap-4 sm:mt-6 lg:grid-cols-2 lg:gap-5">
-                      <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5">
-                        <div className="mb-4 flex items-center gap-2 text-lg font-medium">
-                          <TrendingUp className="h-5 w-5 text-emerald-300" />
-                          Bull Case
-                        </div>
-                        <div className="space-y-3">
-                          {report.bull.map((item) => (
-                            <div
-                              key={item}
-                              className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
-                            >
-                              {item}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <MiniMetric label="Attention" value={report.attentionAcceleration} sub="vs 7d baseline" />
+                    <MiniMetric label="Price confirm" value={report.priceConfirmation} sub="narrative validation" />
+                    <MiniMetric label="Institutional" value={report.institutionalQuality} sub="source quality" />
+                    <MiniMetric label="RSI stretch" value={report.rsiStretch} sub="technical heat" />
+                  </div>
 
-                      <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5">
-                        <div className="mb-4 flex items-center gap-2 text-lg font-medium">
-                          <TrendingDown className="h-5 w-5 text-rose-300" />
-                          Bear Case
-                        </div>
-                        <div className="space-y-3">
-                          {report.bear.map((item) => (
-                            <div
-                              key={item}
-                              className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
-                            >
-                              {item}
-                            </div>
-                          ))}
-                        </div>
+                  <div className="mt-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                    <MiniChart data={report.chart} positive={report.move.startsWith("+")} />
+                    <EarlyLateGauge
+                      value={report.earlyLate}
+                      label={report.earlyLateLabel}
+                      drivers={report.earlyLateDrivers}
+                    />
+                  </div>
+
+                  <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
+                        Dominant theme
                       </div>
+                      <div className="mt-2 text-xl font-semibold text-white">
+                        {report.dominantTheme}
+                      </div>
+                      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
+                        Theme shift
+                      </div>
+                      <div className="mt-2 text-white/68">{report.themeShift}</div>
                     </div>
-                  )}
 
-                  {tab === "evidence" && (
-                    <div className="mt-5 space-y-4 sm:mt-6">
-                      {report.evidence.map((item) => {
-                        const Icon =
-                          item.kind === "News"
-                            ? Newspaper
-                            : item.kind === "Market"
-                            ? Activity
-                            : Sparkles;
-
-                        return (
+                    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
+                        Why this read
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {report.explainers.map((item) => (
                           <div
-                            key={item.title}
-                            className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[26px] sm:p-5"
+                            key={item.label}
+                            className="rounded-2xl border border-white/6 bg-black/20 p-4"
                           >
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="flex gap-4">
-                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
-                                  <Icon className="h-5 w-5 text-cyan-300" />
-                                </div>
-                                <div>
-                                  <div className="text-sm uppercase tracking-[0.18em] text-white/35">
-                                    {item.kind}
-                                  </div>
-                                  <div className="mt-1 text-lg font-medium">
-                                    {item.title}
-                                  </div>
-                                  <div className="mt-2 max-w-3xl text-white/62">
-                                    {item.detail}
-                                  </div>
-                                </div>
-                              </div>
-                              <div
-                                className={`w-fit rounded-full border px-3 py-1 text-sm ${
-                                  item.tone === "Bullish"
-                                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
-                                    : item.tone === "Bearish"
-                                    ? "border-rose-400/20 bg-rose-400/10 text-rose-300"
-                                    : "border-amber-400/20 bg-amber-400/10 text-amber-300"
-                                }`}
-                              >
-                                {item.tone}
-                              </div>
+                            <div className="text-sm font-medium text-white">
+                              {item.label}
+                            </div>
+                            <div className="mt-1 text-sm text-white/62">
+                              {item.detail}
                             </div>
                           </div>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  )}
-
-                  {tab === "fade" && (
-                    <div className="mt-5 grid gap-4 sm:mt-6 lg:grid-cols-3">
-                      {report.fadeBoard.map((item) => (
-                        <div
-                          key={item.name}
-                          className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5"
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="inline-flex items-center gap-2 text-sm text-white/55">
-                              <ShieldAlert className="h-4 w-4 text-amber-300" />
-                              Counter indicator
-                            </div>
-                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">
-                              {item.score}
-                            </div>
-                          </div>
-                          <div className="mt-4 text-lg font-medium">
-                            {item.name}
-                          </div>
-                          <div className="mt-2 text-white/62">{item.note}</div>
-                          <div className="mt-4 h-2 rounded-full bg-white/8">
-                            <div
-                              className="h-2 rounded-full bg-amber-300"
-                              style={{ width: `${item.score}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  </div>
                 </div>
               </section>
 
-              <aside className="space-y-4 sm:space-y-6">
-                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-6">
-                  <div className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
+              <aside className="space-y-6">
+                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-center gap-2 text-2xl font-semibold">
                     <Flame className="h-6 w-6 text-cyan-300" />
                     What changed
                   </div>
@@ -642,28 +761,25 @@ export default function NarrivPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-6">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-xl font-semibold sm:text-2xl">
-                        Source Contribution
-                      </div>
+                      <div className="text-2xl font-semibold">Signal Blend</div>
                       <div className="mt-1 text-sm text-white/45">
-                        How the story is being shaped
+                        What is driving this setup
                       </div>
                     </div>
-                    <button className="inline-flex items-center gap-1 text-sm text-cyan-300">
-                      Explore <ChevronRight className="h-4 w-4" />
-                    </button>
+                    <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/45">
+                      breakdown view
+                    </div>
                   </div>
                   <div className="mt-5 space-y-4">
-                    {report.sourceMix.map((item) => {
-                      const displayValue = Math.max(0, Math.min(100, item.value));
-
+                    {report.drivers.map(([label, value]) => {
+                      const displayValue = Math.max(0, Math.min(100, Number(value)));
                       return (
-                        <div key={item.label}>
+                        <div key={String(label)}>
                           <div className="mb-2 flex items-center justify-between text-sm text-white/65">
-                            <span>{item.label}</span>
+                            <span>{label}</span>
                             <span>{displayValue}%</span>
                           </div>
                           <div className="h-2 overflow-hidden rounded-full bg-white/8">
@@ -678,18 +794,77 @@ export default function NarrivPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-cyan-400/12 bg-cyan-400/[0.05] p-4 shadow-[0_0_80px_rgba(0,0,0,0.25)] sm:rounded-[34px] sm:p-6">
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/70">
-                    Narriv
+                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-center gap-2 text-2xl font-semibold">
+                    <ShieldAlert className="h-6 w-6 text-amber-300" />
+                    Fade Signals
                   </div>
-                  <div className="mt-2 text-xl font-semibold sm:text-2xl">
-                    Decision Layer
+                  <div className="mt-2 text-sm text-white/45">
+                    Signals that suggest the story may be too obvious, too stretched, or too crowded.
                   </div>
-                  <p className="mt-3 text-white/62">
-                    A decision-first layer that turns fragmented attention into
-                    a ranked, evidence-backed signal a brokerage user can act on
-                    in seconds.
-                  </p>
+                  <div className="mt-5 space-y-4">
+                    {report.fadeSignals.map((item) => {
+                      const displayValue = Math.max(0, Math.min(100, Number(item.value)));
+                      return (
+                        <div
+                          key={item.label}
+                          className="rounded-2xl border border-white/6 bg-white/[0.03] p-4"
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <div className="text-sm font-medium text-white">
+                              {item.label}
+                            </div>
+                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">
+                              {displayValue}
+                            </div>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                            <div
+                              className="h-2 rounded-full bg-amber-300"
+                              style={{ width: `${displayValue}%` }}
+                            />
+                          </div>
+                          <div className="mt-3 text-sm text-white/62">{item.note}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-5 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70 sm:text-[11px]">
+                      Narriv take
+                    </div>
+                    <div className="mt-2 text-sm text-white/75">{report.fadeTake}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="mb-4 flex items-center gap-2 text-lg font-medium">
+                    <TrendingUp className="h-5 w-5 text-emerald-300" /> Bull case
+                  </div>
+                  <div className="space-y-3">
+                    {report.bull.map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mb-4 mt-6 flex items-center gap-2 text-lg font-medium">
+                    <TrendingDown className="h-5 w-5 text-rose-300" /> Bear case
+                  </div>
+                  <div className="space-y-3">
+                    {report.bear.map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </aside>
             </div>
