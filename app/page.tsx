@@ -57,6 +57,7 @@ type ReportResponse = {
   verdict: string;
   whyNow: string;
   strength: number;
+  entry: number;
   crowding: number;
   confidence: number;
   fade: number;
@@ -96,13 +97,14 @@ const fallbackReport: ReportResponse = {
   whyNow:
     "Narriv is pulling live market data and recent headlines to generate a fresh report.",
   strength: 78,
+  entry: 58,
   crowding: 72,
   confidence: 81,
   fade: 41,
   changed: [
-    { label: "Fetching quote", value: "+1", tone: "up" },
-    { label: "Fetching recent headlines", value: "+1", tone: "up" },
-    { label: "Generating AI summary", value: "+1", tone: "up" },
+    { label: "Fetching live quote", value: "+1", tone: "up" },
+    { label: "Refreshing headline flow", value: "+1", tone: "up" },
+    { label: "Calculating entry quality", value: "+1", tone: "up" },
   ],
   bull: [
     "Live report generation is in progress",
@@ -448,11 +450,16 @@ export default function NarrivPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 sm:mt-6 md:grid-cols-3">
+                  <div className="mt-5 grid gap-4 sm:mt-6 md:grid-cols-2 xl:grid-cols-4">
                     <MiniMetric
                       label="Strength"
                       value={report.strength}
                       sub="story power"
+                    />
+                    <MiniMetric
+                      label="Entry"
+                      value={report.entry}
+                      sub="from here"
                     />
                     <MiniMetric
                       label="Crowding"
@@ -650,25 +657,24 @@ export default function NarrivPage() {
                     </button>
                   </div>
                   <div className="mt-5 space-y-4">
-            {report.sourceMix.map((item) => {
-  const displayValue = Math.max(0, Math.min(100, item.value));
+                    {report.sourceMix.map((item) => {
+                      const displayValue = Math.max(0, Math.min(100, item.value));
 
-  return (
-    <div key={item.label}>
-      <div className="mb-2 flex items-center justify-between text-sm text-white/65">
-        <span>{item.label}</span>
-        <span>{displayValue}%</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/8">
-        <div
-          className={`h-2 rounded-full ${barTone(displayValue)}`}
-          style={{ width: `${displayValue}%` }}
-        />
-      </div>
-    </div>
-  );
-})}
-
+                      return (
+                        <div key={item.label}>
+                          <div className="mb-2 flex items-center justify-between text-sm text-white/65">
+                            <span>{item.label}</span>
+                            <span>{displayValue}%</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                            <div
+                              className={`h-2 rounded-full ${barTone(displayValue)}`}
+                              style={{ width: `${displayValue}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
