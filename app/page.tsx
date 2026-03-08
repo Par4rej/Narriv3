@@ -3,513 +3,779 @@
 import React, { useMemo, useState } from "react";
 import {
   Search,
+  Sparkles,
+  ArrowUpRight,
+  ArrowDownRight,
+  Clock3,
+  Radar,
+  ShieldAlert,
   TrendingUp,
   TrendingDown,
   Newspaper,
-  MessageSquare,
-  PlayCircle,
-  BarChart3,
-  AlertTriangle,
-  Gauge,
-  Zap,
-  ShieldCheck,
+  MessageSquareText,
+  PlaySquare,
+  Activity,
+  ChevronRight,
+  Bell,
   RefreshCw,
+  Flame,
+  Eye,
+  BarChart3,
 } from "lucide-react";
 
-const sampleAssets = {
-  BTC: {
-    name: "Bitcoin",
-    type: "Crypto",
-    price: "$96,412",
-    change1d: "+3.8%",
-    narrativeScore: 84,
-    verdict: "Constructive momentum",
-    summary:
-      "Bitcoin is being carried by a strong institutional and macro narrative, but shorter-term crowd sentiment is running hot. The signal stack suggests the story is powerful, though more crowded than clean.",
-    pillars: [
-      {
-        label: "Price Confirmation",
-        score: 88,
-        detail: "Strong recent price action confirms the narrative instead of contradicting it.",
-      },
-      {
-        label: "Media Tailwind",
-        score: 79,
-        detail: "Headline flow is supportive and has accelerated in the past 48 hours.",
-      },
-      {
-        label: "Social Velocity",
-        score: 91,
-        detail: "Mentions and high-follower discussion are expanding quickly across major channels.",
-      },
-      {
-        label: "Narrative Durability",
-        score: 76,
-        detail: "This is not purely a meme spike; the story has persisted over multiple cycles.",
-      },
-      {
-        label: "Crowding Risk",
-        score: 63,
-        detail: "Sentiment is bullish, but positioning looks increasingly consensus-driven.",
-      },
-    ],
-    catalysts: [
-      "Institutional adoption and ETF-related capital flows",
-      "Macro hedge framing in inflation and liquidity debates",
-      "High share of financial media coverage versus altcoins",
-    ],
-    risks: [
-      "Overheated social sentiment and crowded positioning",
-      "Policy headlines can flip the tone very quickly",
-      "Narrative strength may be outrunning short-term fundamentals",
-    ],
-    evidence: [
-      {
-        source: "News pulse",
-        icon: Newspaper,
-        headline: "Coverage volume is 2.4x the 30-day average with positive tone skew.",
-      },
-      {
-        source: "Social pulse",
-        icon: MessageSquare,
-        headline: "High-engagement posts accelerated sharply over the last 24 hours.",
-      },
-      {
-        source: "Video pulse",
-        icon: PlayCircle,
-        headline: "Creator discussion expanded with bullish thumbnail and title framing.",
-      },
-      {
-        source: "Market pulse",
-        icon: BarChart3,
-        headline: "Price action is confirming narrative rather than diverging from it.",
-      },
-    ],
-  },
+const assets = {
   NVDA: {
+    symbol: "NVDA",
     name: "NVIDIA",
-    type: "Stock",
     price: "$154.20",
-    change1d: "+1.2%",
-    narrativeScore: 78,
-    verdict: "Elite story, richer expectations",
-    summary:
-      "NVIDIA still owns one of the strongest narratives in public markets, but expectation risk is high. The engine sees durable attention with less asymmetric upside than earlier phases of the cycle.",
-    pillars: [
-      {
-        label: "Price Confirmation",
-        score: 82,
-        detail: "Trend remains healthy and supports the dominant AI narrative.",
-      },
-      {
-        label: "Media Tailwind",
-        score: 86,
-        detail: "Mainstream and finance media remain highly focused on AI capex beneficiaries.",
-      },
-      {
-        label: "Social Velocity",
-        score: 73,
-        detail: "Conversation remains elevated, but incremental acceleration is moderate.",
-      },
-      {
-        label: "Narrative Durability",
-        score: 92,
-        detail: "This is a highly persistent multi-quarter story, not a flash event.",
-      },
-      {
-        label: "Crowding Risk",
-        score: 54,
-        detail: "Positioning and consensus optimism create a higher bar for surprise.",
-      },
+    move: "+1.2%",
+    strength: 78,
+    confidence: 81,
+    crowding: 72,
+    fade: 41,
+    updated: "8 min ago",
+    verdict: "Strong, but crowded",
+    whyNow:
+      "AI infrastructure remains the dominant market story, but upside is less clean than earlier phases because crowding is rising faster than signal quality.",
+    changed: [
+      { label: "Price confirmed the dominant thesis", value: "+6", tone: "up" },
+      { label: "Influencer velocity cooled slightly", value: "-1", tone: "down" },
+      { label: "Consensus pressure moved higher", value: "+8", tone: "up" },
     ],
-    catalysts: [
-      "AI infrastructure spending",
-      "Large-cap quality leadership",
-      "Enterprise and hyperscaler demand framing",
+    bull: [
+      "AI capex still owns premium financial mindshare",
+      "Price is confirming instead of rejecting the story",
+      "High-quality discussion remains concentrated among serious market participants",
     ],
-    risks: [
-      "Perfection risk into earnings",
-      "Valuation sensitivity to any capex slowdown",
-      "Narrative may remain strong even if returns compress",
+    bear: [
+      "The setup is increasingly consensus and harder to surprise positively",
+      "Story strength may be outrunning near-term upside asymmetry",
+      "Late-cycle commentary is rising into event-heavy windows",
     ],
     evidence: [
       {
-        source: "News pulse",
+        kind: "News",
         icon: Newspaper,
-        headline: "Persistent AI capex framing supports premium attention share.",
+        title: "AI capex framing remains dominant in market coverage",
+        detail:
+          "Coverage quality remains high and consistently points back to NVIDIA as a core beneficiary.",
+        tone: "Bullish",
       },
       {
-        source: "Social pulse",
-        icon: MessageSquare,
-        headline: "High-quality discussion remains elevated across investor communities.",
+        kind: "Social",
+        icon: MessageSquareText,
+        title: "High-engagement discussion is still elevated",
+        detail:
+          "Conversation quality remains strong, but incremental acceleration is slower than earlier surges.",
+        tone: "Bullish",
       },
       {
-        source: "Video pulse",
-        icon: PlayCircle,
-        headline: "YouTube creators still treat it as a flagship AI beneficiary.",
+        kind: "Video",
+        icon: PlaySquare,
+        title: "Creator ecosystem remains constructive but more expectation-sensitive",
+        detail:
+          "Video narratives still support the thesis, though commentary is more crowded and valuation-aware.",
+        tone: "Mixed",
+      },
+    ],
+    sourceMix: [
+      ["Price confirmation", 83],
+      ["News and opinion", 77],
+      ["YouTube creator layer", 68],
+      ["X / social pulse", 62],
+      ["Reddit communities", 54],
+    ],
+    fadeBoard: [
+      {
+        name: "Late TV momentum chatter",
+        score: 67,
+        note: "Useful as a crowding input when the story is already saturated.",
       },
       {
-        source: "Market pulse",
-        icon: BarChart3,
-        headline: "Trend remains constructive, though less explosive than prior phases.",
+        name: "Retail euphoric spike accounts",
+        score: 73,
+        note: "Historically noisy when expectations get stretched too quickly.",
+      },
+      {
+        name: "Jim Cramer counter-watch",
+        score: 52,
+        note: "Novelty sentiment input only, not a mechanical signal.",
       },
     ],
   },
-  PSA10ZARD: {
-    name: "1999 Charizard PSA 10",
-    type: "Collectible",
-    price: "$24,500",
-    change1d: "+0.4%",
-    narrativeScore: 67,
-    verdict: "Strong icon, slower velocity",
-    summary:
-      "The card has elite cultural status and persistent collector demand, but the short-term narrative engine is slower and less catalytic than liquid markets. Great brand power, lower immediacy.",
-    pillars: [
-      {
-        label: "Price Confirmation",
-        score: 64,
-        detail: "Price trend is stable, but momentum is not explosive.",
-      },
-      {
-        label: "Media Tailwind",
-        score: 51,
-        detail: "Traditional media coverage is light unless tied to broader collectibles cycles.",
-      },
-      {
-        label: "Social Velocity",
-        score: 62,
-        detail: "Collector discussion exists, but velocity is episodic.",
-      },
-      {
-        label: "Narrative Durability",
-        score: 95,
-        detail: "One of the most durable collectibles stories on earth.",
-      },
-      {
-        label: "Crowding Risk",
-        score: 63,
-        detail: "Widely recognized blue-chip status reduces true under-the-radar upside.",
-      },
+  BTC: {
+    symbol: "BTC",
+    name: "Bitcoin",
+    price: "$96,412",
+    move: "+3.8%",
+    strength: 84,
+    confidence: 77,
+    crowding: 79,
+    fade: 36,
+    updated: "4 min ago",
+    verdict: "Very strong, but overheated",
+    whyNow:
+      "Bitcoin is being carried by a powerful institutional and macro narrative, but sentiment is running hot and the story is increasingly crowded.",
+    changed: [
+      { label: "Headline tone stayed positive", value: "+5", tone: "up" },
+      { label: "Social velocity accelerated", value: "+7", tone: "up" },
+      { label: "Crowding risk rose materially", value: "+10", tone: "up" },
     ],
-    catalysts: [
-      "Nostalgia and brand permanence",
-      "Visibility in high-end collector circles",
-      "Long-term scarcity framing",
+    bull: [
+      "Institutional and macro framing keeps expanding the audience",
+      "Price confirmation remains strong",
+      "Media share remains dominant relative to most crypto assets",
     ],
-    risks: [
-      "Lower liquidity than stocks or crypto",
-      "Narrative bursts tend to be event-driven",
-      "High entry price limits fresh participant flow",
+    bear: [
+      "Crowding and sentiment heat are rising fast",
+      "Policy and macro headlines can abruptly reverse tone",
+      "Part of the social velocity is reflexive rather than fundamental",
     ],
     evidence: [
       {
-        source: "News pulse",
+        kind: "News",
         icon: Newspaper,
-        headline: "Coverage is sparse but overwhelmingly prestige-oriented.",
+        title: "Coverage volume remains materially above baseline",
+        detail:
+          "Headline flow is broad, positive, and persistent across major outlets.",
+        tone: "Bullish",
       },
       {
-        source: "Social pulse",
-        icon: MessageSquare,
-        headline: "Collector mentions are consistent, not viral.",
+        kind: "Social",
+        icon: MessageSquareText,
+        title: "High-engagement posts continue to accelerate",
+        detail:
+          "Reach is expanding quickly, though quality varies more than institutional coverage.",
+        tone: "Bullish",
       },
       {
-        source: "Video pulse",
-        icon: PlayCircle,
-        headline: "YouTube interest spikes around auctions and nostalgia cycles.",
+        kind: "Video",
+        icon: PlaySquare,
+        title: "Creator attention remains elevated",
+        detail:
+          "Macro hedge framing is still being amplified aggressively in video ecosystems.",
+        tone: "Bullish",
+      },
+    ],
+    sourceMix: [
+      ["Price confirmation", 88],
+      ["News and opinion", 79],
+      ["X / social pulse", 75],
+      ["YouTube creator layer", 71],
+      ["Reddit communities", 58],
+    ],
+    fadeBoard: [
+      {
+        name: "Tourist crypto hype",
+        score: 76,
+        note: "Useful as a late-cycle heat input.",
       },
       {
-        source: "Market pulse",
-        icon: BarChart3,
-        headline: "Sales appear resilient, though cadence is slower than liquid assets.",
+        name: "Macro doom-whipsaw accounts",
+        score: 43,
+        note: "Can create false urgency spikes.",
+      },
+      {
+        name: "Jim Cramer counter-watch",
+        score: 58,
+        note: "Novelty sentiment input only.",
+      },
+    ],
+  },
+  TSLA: {
+    symbol: "TSLA",
+    name: "Tesla",
+    price: "$242.87",
+    move: "-1.7%",
+    strength: 65,
+    confidence: 62,
+    crowding: 54,
+    fade: 69,
+    updated: "11 min ago",
+    verdict: "Loud, conflicted, and noisy",
+    whyNow:
+      "Tesla remains one of the internet's loudest stories, but the signal stack is more chaotic than clean. Attention is huge, conviction is fragmented, and counter-signals are meaningful.",
+    changed: [
+      { label: "Counter-signal voices rose", value: "+4", tone: "up" },
+      { label: "Confidence slipped", value: "-3", tone: "down" },
+      { label: "Story stayed noisy", value: "+1", tone: "up" },
+    ],
+    bull: [
+      "Few public equities command this much sustained mindshare",
+      "Attention spikes can reignite quickly with catalyst flow",
+      "Polarization can create opportunity if the story resolves cleanly",
+    ],
+    bear: [
+      "Signal quality is noisier than top-tier setups",
+      "Counter-indicator inputs are elevated",
+      "Price and attention often diverge in uncomfortable ways",
+    ],
+    evidence: [
+      {
+        kind: "News",
+        icon: Newspaper,
+        title: "Coverage remains constant but split in tone",
+        detail:
+          "The asset receives nonstop attention, but the framing swings rapidly.",
+        tone: "Mixed",
+      },
+      {
+        kind: "Social",
+        icon: MessageSquareText,
+        title: "High velocity, low consensus",
+        detail:
+          "Engagement is massive, but agreement across camps is weak.",
+        tone: "Mixed",
+      },
+      {
+        kind: "Video",
+        icon: PlaySquare,
+        title: "Creator ecosystem is hyperactive but uneven",
+        detail: "Narrative breadth is strong, but reliability varies widely.",
+        tone: "Mixed",
+      },
+    ],
+    sourceMix: [
+      ["Social pulse", 80],
+      ["News and opinion", 74],
+      ["YouTube creator layer", 73],
+      ["Price confirmation", 49],
+      ["Reddit communities", 61],
+    ],
+    fadeBoard: [
+      {
+        name: "Headline-chasing TV panels",
+        score: 71,
+        note: "Often react after sentiment has already swung.",
+      },
+      {
+        name: "Retail fight-club accounts",
+        score: 79,
+        note: "High reach, low clarity.",
+      },
+      {
+        name: "Jim Cramer counter-watch",
+        score: 61,
+        note: "Novelty sentiment input only.",
       },
     ],
   },
 };
 
-function scoreColor(score: number) {
-  if (score >= 80) return "bg-emerald-500";
-  if (score >= 65) return "bg-amber-500";
-  return "bg-rose-500";
+const watchlist = [
+  { symbol: "NVDA", score: 78, move: "+1.2%" },
+  { symbol: "BTC", score: 84, move: "+3.8%" },
+  { symbol: "TSLA", score: 65, move: "-1.7%" },
+  { symbol: "ETH", score: 74, move: "+2.4%" },
+  { symbol: "MSTR", score: 80, move: "+4.1%" },
+];
+
+function tonePill(score: number) {
+  if (score >= 80) {
+    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
+  }
+  if (score >= 65) {
+    return "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
+  }
+  return "border-amber-400/20 bg-amber-400/10 text-amber-300";
 }
 
-function PillarBar({
+function barTone(score: number) {
+  if (score >= 80) return "bg-emerald-400";
+  if (score >= 65) return "bg-cyan-400";
+  return "bg-amber-400";
+}
+
+function MiniMetric({
   label,
-  score,
-  detail,
+  value,
+  sub,
 }: {
   label: string;
-  score: number;
-  detail: string;
+  value: number;
+  sub: string;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-medium text-white">{label}</div>
-          <div className="text-xs text-zinc-400">{detail}</div>
-        </div>
-        <div className="text-lg font-semibold text-white">{score}</div>
+    <div className="rounded-[26px] border border-white/8 bg-white/[0.03] p-5">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">
+        {label}
       </div>
-      <div className="h-2 w-full rounded-full bg-white/10">
-        <div
-          className={`h-2 rounded-full ${scoreColor(score)}`}
-          style={{ width: `${score}%` }}
-        />
-      </div>
+      <div className="mt-3 text-3xl font-semibold text-white">{value}</div>
+      <div className="mt-1 text-sm text-white/52">{sub}</div>
     </div>
   );
 }
 
-function ReportCard({
-  asset,
-}: {
-  asset: (typeof sampleAssets)[keyof typeof sampleAssets];
-}) {
-  const changePositive = asset.change1d.startsWith("+");
-
-  return (
-    <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-      <section className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-        <div className="flex flex-col gap-5 border-b border-white/10 pb-6 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="mb-2 inline-flex items-center rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-200">
-              {asset.type} Narrative Report
-            </div>
-            <h2 className="text-3xl font-semibold tracking-tight text-white">
-              {asset.name}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-300">
-              {asset.summary}
-            </p>
-          </div>
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-5 text-right">
-            <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-              Narrative Score
-            </div>
-            <div className="mt-1 text-5xl font-bold text-white">
-              {asset.narrativeScore}
-            </div>
-            <div className="mt-2 text-sm font-medium text-cyan-300">
-              {asset.verdict}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-xs uppercase tracking-wide text-zinc-400">
-              Live Price
-            </div>
-            <div className="mt-2 text-2xl font-semibold text-white">
-              {asset.price}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-xs uppercase tracking-wide text-zinc-400">
-              1D Move
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-2xl font-semibold text-white">
-              {changePositive ? (
-                <TrendingUp className="h-5 w-5 text-emerald-400" />
-              ) : (
-                <TrendingDown className="h-5 w-5 text-rose-400" />
-              )}
-              {asset.change1d}
-            </div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-xs uppercase tracking-wide text-zinc-400">
-              Engine Verdict
-            </div>
-            <div className="mt-2 flex items-center gap-2 text-lg font-semibold text-white">
-              <Gauge className="h-5 w-5 text-cyan-300" />
-              {asset.verdict}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-4">
-          {asset.pillars.map((pillar) => (
-            <PillarBar key={pillar.label} {...pillar} />
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-6">
-        <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="mb-4 flex items-center gap-2 text-white">
-            <Zap className="h-5 w-5 text-cyan-300" />
-            <h3 className="text-lg font-semibold">Signal Evidence</h3>
-          </div>
-          <div className="space-y-3">
-            {asset.evidence.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={item.source}
-                  className="rounded-2xl border border-white/10 bg-white/5 p-4"
-                >
-                  <div className="mb-1 flex items-center gap-2 text-sm font-medium text-white">
-                    <Icon className="h-4 w-4 text-cyan-300" />
-                    {item.source}
-                  </div>
-                  <p className="text-sm leading-6 text-zinc-300">
-                    {item.headline}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-white/10 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="mb-4 flex items-center gap-2 text-white">
-            <ShieldCheck className="h-5 w-5 text-emerald-300" />
-            <h3 className="text-lg font-semibold">Catalysts</h3>
-          </div>
-          <ul className="space-y-3 text-sm text-zinc-300">
-            {asset.catalysts.map((item) => (
-              <li
-                key={item}
-                className="rounded-2xl border border-white/10 bg-white/5 p-3"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="rounded-3xl border border-rose-400/20 bg-zinc-950/70 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="mb-4 flex items-center gap-2 text-white">
-            <AlertTriangle className="h-5 w-5 text-rose-300" />
-            <h3 className="text-lg font-semibold">Narrative Risks</h3>
-          </div>
-          <ul className="space-y-3 text-sm text-zinc-300">
-            {asset.risks.map((item) => (
-              <li
-                key={item}
-                className="rounded-2xl border border-white/10 bg-white/5 p-3"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export default function NarrivDemoPage() {
-  const [query, setQuery] = useState("BTC");
-  const [selected, setSelected] = useState<keyof typeof sampleAssets>("BTC");
+export default function NarrivPage() {
+  const [query, setQuery] = useState("NVDA");
+  const [selected, setSelected] = useState<keyof typeof assets>("NVDA");
+  const [tab, setTab] = useState<"overview" | "evidence" | "fade">("overview");
 
   const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
+  const asset = assets[selected];
 
-  function runDemoSearch() {
-    if (normalized in sampleAssets) {
-      setSelected(normalized as keyof typeof sampleAssets);
+  function runSearch() {
+    if (normalized in assets) {
+      setSelected(normalized as keyof typeof assets);
       return;
     }
-    if (normalized.includes("NVIDIA") || normalized === "NVDA") {
+    if (normalized.includes("NVIDIA")) {
       setSelected("NVDA");
       return;
     }
-    if (normalized.includes("CHARIZARD") || normalized.includes("POKEMON")) {
-      setSelected("PSA10ZARD");
+    if (normalized.includes("BITCOIN")) {
+      setSelected("BTC");
       return;
     }
-    setSelected("BTC");
+    if (normalized.includes("TESLA")) {
+      setSelected("TSLA");
+      return;
+    }
+    setSelected("NVDA");
   }
 
-  const asset = sampleAssets[selected];
-
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_transparent_30%),linear-gradient(180deg,_#0a0a0a_0%,_#111827_100%)] text-white">
-      <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
-        <header className="mb-8">
-          <div className="flex flex-col gap-6 rounded-[2rem] border border-white/10 bg-black/30 p-6 shadow-2xl shadow-black/30 backdrop-blur lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-zinc-300">
-                narriv.ai
+    <main className="min-h-screen bg-[#02060b] text-white">
+      <div className="mx-auto max-w-[1560px] px-6 py-6">
+        <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
+          <aside className="rounded-[30px] border border-white/8 bg-[#080c13]/92 p-5 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
+                  Narriv
+                </div>
+                <div className="mt-1 text-2xl font-semibold">Watchlist</div>
+                <div className="mt-1 text-sm text-white/45">
+                  Signals and alerts
+                </div>
               </div>
-              <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                The narrative decision layer.
-              </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-zinc-300">
-                Search a stock, crypto, collectible, or cultural asset and
-                generate a narrative report card built from market action, media
-                momentum, creator attention, and crowd velocity.
-              </p>
+              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
+                <Sparkles className="h-5 w-5 text-cyan-300" />
+              </div>
             </div>
 
-            <div className="flex w-full max-w-xl flex-col gap-3">
-              <div className="flex gap-3 rounded-2xl border border-white/10 bg-white/5 p-2">
-                <div className="flex flex-1 items-center gap-2 rounded-xl bg-black/30 px-3">
-                  <Search className="h-4 w-4 text-zinc-400" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") runDemoSearch();
-                    }}
-                    placeholder="Try BTC, NVDA, or Charizard PSA 10"
-                    className="h-12 w-full bg-transparent text-sm text-white outline-none placeholder:text-zinc-500"
-                  />
-                </div>
-                <button
-                  onClick={runDemoSearch}
-                  className="rounded-xl bg-cyan-400 px-4 text-sm font-semibold text-black transition hover:bg-cyan-300"
-                >
-                  Generate Report
-                </button>
+            <div className="mt-6 rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4">
+              <div className="flex items-center gap-2 text-sm text-white/55">
+                <Activity className="h-4 w-4 text-emerald-300" />
+                Tracked Assets
               </div>
-
-              <div className="flex flex-wrap gap-2 text-xs text-zinc-300">
-                {["BTC", "NVDA", "PSA10ZARD"].map((ticker) => (
+              <div className="mt-4 space-y-2">
+                {watchlist.map((item) => (
                   <button
-                    key={ticker}
+                    key={item.symbol}
                     onClick={() => {
-                      setQuery(ticker);
-                      setSelected(ticker as keyof typeof sampleAssets);
+                      if (item.symbol in assets) {
+                        setSelected(item.symbol as keyof typeof assets);
+                        setQuery(item.symbol);
+                      }
                     }}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-2 hover:bg-white/10"
+                    className="flex w-full items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]"
                   >
-                    {ticker}
+                    <div>
+                      <div className="font-medium">{item.symbol}</div>
+                      <div className="text-xs text-white/45">
+                        Strength {item.score}
+                      </div>
+                    </div>
+                    <div
+                      className={`text-sm ${
+                        item.move.startsWith("+")
+                          ? "text-emerald-300"
+                          : "text-rose-300"
+                      }`}
+                    >
+                      {item.move}
+                    </div>
                   </button>
                 ))}
-                <button className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-zinc-400 hover:bg-white/10">
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Cached demo mode
-                </button>
               </div>
             </div>
-          </div>
-        </header>
 
-        <section className="mb-8 grid gap-4 md:grid-cols-4">
-          {[
-            { label: "Headline Tone", value: "+18%", sub: "vs 7-day baseline" },
-            { label: "Influencer Velocity", value: "High", sub: "weighted by reach" },
-            { label: "Narrative Crowding", value: "Medium", sub: "consensus risk" },
-            { label: "Price Confirmation", value: "On", sub: "market agrees" },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="rounded-3xl border border-white/10 bg-black/30 p-5 backdrop-blur"
-            >
-              <div className="text-xs uppercase tracking-wide text-zinc-400">
-                {item.label}
+            <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="flex items-center gap-2 text-sm text-white/55">
+                <Bell className="h-4 w-4 text-cyan-300" />
+                Suggested Alerts
               </div>
-              <div className="mt-2 text-2xl font-semibold text-white">
-                {item.value}
+              <div className="mt-4 space-y-3 text-sm text-white/75">
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
+                  Alert when strength rises above 80
+                </div>
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
+                  Alert on price / attention divergence
+                </div>
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
+                  Alert when fade pressure spikes
+                </div>
               </div>
-              <div className="mt-1 text-sm text-zinc-400">{item.sub}</div>
             </div>
-          ))}
-        </section>
+          </aside>
 
-        <ReportCard asset={asset} />
+          <section className="space-y-6">
+            <div className="rounded-[36px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-7 shadow-[0_0_100px_rgba(0,0,0,0.45)]">
+              <div className="grid gap-7 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
+                <div className="max-w-3xl">
+                  <div className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-white/65">
+                    Robinhood feature demo
+                  </div>
+                  <h1 className="mt-5 text-5xl font-semibold tracking-tight sm:text-6xl">
+                    Narrative signals,{" "}
+                    <span className="text-cyan-300">ranked and usable.</span>
+                  </h1>
+                  <p className="mt-5 max-w-2xl text-lg leading-8 text-white/60">
+                    The fastest way to know whether the story around an asset is
+                    getting stronger, weaker, or too crowded to trust.
+                  </p>
+                </div>
+
+                <div className="rounded-[28px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur">
+                  <div className="flex gap-3">
+                    <div className="flex flex-1 items-center gap-3 rounded-[20px] bg-black/30 px-4">
+                      <Search className="h-5 w-5 text-white/40" />
+                      <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") runSearch();
+                        }}
+                        className="h-14 w-full bg-transparent text-lg outline-none placeholder:text-white/30"
+                        placeholder="Try NVDA, BTC, or TSLA"
+                      />
+                    </div>
+                    <button
+                      onClick={runSearch}
+                      className="rounded-[20px] bg-[#20d7ff] px-6 text-lg font-medium text-black transition hover:brightness-105"
+                    >
+                      Generate Report
+                    </button>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {Object.keys(assets).map((ticker) => (
+                      <button
+                        key={ticker}
+                        onClick={() => {
+                          setSelected(ticker as keyof typeof assets);
+                          setQuery(ticker);
+                        }}
+                        className={`rounded-full border px-4 py-2 text-sm transition ${
+                          selected === ticker
+                            ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
+                            : "border-white/8 bg-white/[0.03] text-white/60 hover:bg-white/[0.05]"
+                        }`}
+                      >
+                        {ticker}
+                      </button>
+                    ))}
+                    <button className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-sm text-white/45">
+                      <RefreshCw className="h-4 w-4" />
+                      Cached live mode
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
+              <section className="space-y-6">
+                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-7 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex flex-col gap-6 border-b border-white/8 pb-6 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="max-w-3xl">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200">
+                        <Radar className="h-3.5 w-3.5" />
+                        {asset.symbol} decision brief
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <h2 className="text-4xl font-semibold tracking-tight">
+                          {asset.name}
+                        </h2>
+                        <div
+                          className={`rounded-full border px-3 py-1 text-sm ${tonePill(
+                            asset.strength
+                          )}`}
+                        >
+                          {asset.verdict}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/45">
+                        <span className="inline-flex items-center gap-2">
+                          <Clock3 className="h-4 w-4" />
+                          Updated {asset.updated}
+                        </span>
+                        <span
+                          className={`inline-flex items-center gap-1 ${
+                            asset.move.startsWith("+")
+                              ? "text-emerald-300"
+                              : "text-rose-300"
+                          }`}
+                        >
+                          {asset.move.startsWith("+") ? (
+                            <ArrowUpRight className="h-4 w-4" />
+                          ) : (
+                            <ArrowDownRight className="h-4 w-4" />
+                          )}
+                          {asset.price} {asset.move}
+                        </span>
+                      </div>
+                      <p className="mt-5 text-xl leading-9 text-white/72">
+                        {asset.whyNow}
+                      </p>
+                    </div>
+
+                    <div className="min-w-[240px]">
+                      <div
+                        className={`rounded-[30px] border p-6 text-center backdrop-blur ${tonePill(
+                          asset.strength
+                        )}`}
+                      >
+                        <div className="text-[11px] uppercase tracking-[0.22em] text-white/50">
+                          Verdict
+                        </div>
+                        <div className="mt-3 text-2xl font-semibold text-white">
+                          {asset.verdict}
+                        </div>
+                        <div className="mt-4 text-sm text-white/70">
+                          Strength {asset.strength}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                    <MiniMetric
+                      label="Strength"
+                      value={asset.strength}
+                      sub="story power"
+                    />
+                    <MiniMetric
+                      label="Crowding"
+                      value={asset.crowding}
+                      sub="consensus pressure"
+                    />
+                    <MiniMetric
+                      label="Confidence"
+                      value={asset.confidence}
+                      sub="signal quality"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-7 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ["overview", "Overview", Eye],
+                      ["evidence", "Evidence", BarChart3],
+                      ["fade", "Fade Board", ShieldAlert],
+                    ].map(([key, label, Icon]) => (
+                      <button
+                        key={String(key)}
+                        onClick={() =>
+                          setTab(key as "overview" | "evidence" | "fade")
+                        }
+                        className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition ${
+                          tab === key
+                            ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-200"
+                            : "border-white/8 bg-white/[0.03] text-white/55 hover:bg-white/[0.05]"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {tab === "overview" && (
+                    <div className="mt-6 grid gap-5 lg:grid-cols-2">
+                      <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
+                        <div className="mb-4 flex items-center gap-2 text-lg font-medium">
+                          <TrendingUp className="h-5 w-5 text-emerald-300" />
+                          Bull Case
+                        </div>
+                        <div className="space-y-3">
+                          {asset.bull.map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
+                        <div className="mb-4 flex items-center gap-2 text-lg font-medium">
+                          <TrendingDown className="h-5 w-5 text-rose-300" />
+                          Bear Case
+                        </div>
+                        <div className="space-y-3">
+                          {asset.bear.map((item) => (
+                            <div
+                              key={item}
+                              className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
+                            >
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {tab === "evidence" && (
+                    <div className="mt-6 space-y-4">
+                      {asset.evidence.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <div
+                            key={item.title}
+                            className="rounded-[26px] border border-white/8 bg-white/[0.03] p-5"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex gap-4">
+                                <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
+                                  <Icon className="h-5 w-5 text-cyan-300" />
+                                </div>
+                                <div>
+                                  <div className="text-sm uppercase tracking-[0.18em] text-white/35">
+                                    {item.kind}
+                                  </div>
+                                  <div className="mt-1 text-lg font-medium">
+                                    {item.title}
+                                  </div>
+                                  <div className="mt-2 max-w-3xl text-white/62">
+                                    {item.detail}
+                                  </div>
+                                </div>
+                              </div>
+                              <div
+                                className={`rounded-full border px-3 py-1 text-sm ${
+                                  item.tone === "Bullish"
+                                    ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                                    : "border-amber-400/20 bg-amber-400/10 text-amber-300"
+                                }`}
+                              >
+                                {item.tone}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {tab === "fade" && (
+                    <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                      {asset.fadeBoard.map((item) => (
+                        <div
+                          key={item.name}
+                          className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="inline-flex items-center gap-2 text-sm text-white/55">
+                              <ShieldAlert className="h-4 w-4 text-amber-300" />
+                              Counter indicator
+                            </div>
+                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">
+                              {item.score}
+                            </div>
+                          </div>
+                          <div className="mt-4 text-lg font-medium">
+                            {item.name}
+                          </div>
+                          <div className="mt-2 text-white/62">{item.note}</div>
+                          <div className="mt-4 h-2 rounded-full bg-white/8">
+                            <div
+                              className="h-2 rounded-full bg-amber-300"
+                              style={{ width: `${item.score}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <aside className="space-y-6">
+                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-center gap-2 text-2xl font-semibold">
+                    <Flame className="h-6 w-6 text-cyan-300" />
+                    What changed
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {asset.changed.map((item) => (
+                      <div
+                        key={item.label}
+                        className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4"
+                      >
+                        <div className="max-w-[75%] text-white/75">
+                          {item.label}
+                        </div>
+                        <div
+                          className={`rounded-full px-3 py-1 text-sm ${
+                            item.tone === "down"
+                              ? "bg-rose-400/10 text-rose-300"
+                              : "bg-emerald-400/10 text-emerald-300"
+                          }`}
+                        >
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-2xl font-semibold">
+                        Source Contribution
+                      </div>
+                      <div className="mt-1 text-sm text-white/45">
+                        How the story is being shaped
+                      </div>
+                    </div>
+                    <button className="inline-flex items-center gap-1 text-sm text-cyan-300">
+                      Explore <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-5 space-y-4">
+                    {asset.sourceMix.map(([label, value]) => (
+                      <div key={String(label)}>
+                        <div className="mb-2 flex items-center justify-between text-sm text-white/65">
+                          <span>{label}</span>
+                          <span>{value}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-white/8">
+                          <div
+                            className={`h-2 rounded-full ${barTone(
+                              Number(value)
+                            )}`}
+                            style={{ width: `${value}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[34px] border border-cyan-400/12 bg-cyan-400/[0.05] p-6 shadow-[0_0_80px_rgba(0,0,0,0.25)]">
+                  <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/70">
+                    Narriv
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold">
+                    Decision Layer
+                  </div>
+                  <p className="mt-3 text-white/62">
+                    A decision-first layer that turns fragmented attention into
+                    a ranked, evidence-backed signal a brokerage user can act on
+                    in seconds.
+                  </p>
+                </div>
+              </aside>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );
