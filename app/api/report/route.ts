@@ -35,6 +35,7 @@ type ReportResponse = {
   verdict: string;
   whyNow: string;
   strength: number;
+  entry: number;
   crowding: number;
   confidence: number;
   fade: number;
@@ -120,6 +121,8 @@ function fallbackReport(
   const crowding = clamp(35 + Math.min(headlines.length * 5, 30) + Math.max(dp, 0) * 2);
   const confidence = clamp(58 + Math.min(headlines.length * 4, 22));
   const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
+  const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
+
 
   let verdict = "Mixed setup";
   if (strength >= 80 && crowding >= 75) verdict = "Strong, but crowded";
@@ -139,6 +142,7 @@ function fallbackReport(
         ? `Recent headlines and live price action suggest ${asset.displayName} remains actively in focus, but the setup should be judged through both attention strength and crowding risk.`
         : `${asset.displayName} has live price data, but there was limited fresh headline evidence available in this pull.`,
     strength,
+    entry,
     crowding,
     confidence,
     fade,
@@ -383,15 +387,17 @@ export async function GET(req: NextRequest) {
         : 0;
 
     const strength = clamp(
-      52 + Math.min(headlines.length * 5, 25) + Math.abs(movePct) * 2
-    );
-    const crowding = clamp(
-      30 + Math.min(headlines.length * 6, 30) + Math.max(movePct, 0) * 2.5
-    );
-    const confidence = clamp(
-      56 + Math.min(headlines.length * 5, 25) + (currentPrice > 0 ? 8 : 0)
-    );
-    const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
+  52 + Math.min(headlines.length * 5, 25) + Math.abs(movePct) * 2
+);
+const crowding = clamp(
+  30 + Math.min(headlines.length * 6, 30) + Math.max(movePct, 0) * 2.5
+);
+const confidence = clamp(
+  56 + Math.min(headlines.length * 5, 25) + (currentPrice > 0 ? 8 : 0)
+);
+const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
+const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
+
 
     const base = fallbackReport(asset, currentPrice, movePct, headlines);
     base.name = profileName;
@@ -413,6 +419,7 @@ export async function GET(req: NextRequest) {
     const result: ReportResponse = {
       ...base,
       strength,
+      entry,
       crowding,
       confidence,
       fade,
