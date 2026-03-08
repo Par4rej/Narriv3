@@ -183,35 +183,17 @@ function barTone(score: number) {
   return "bg-amber-400";
 }
 
-function MiniMetric({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: number;
-  sub: string;
-}) {
+function MiniMetric({ label, value, sub }: { label: string; value: number; sub: string }) {
   return (
     <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4 sm:p-5">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
-        {label}
-      </div>
-      <div className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
-        {value}
-      </div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">{label}</div>
+      <div className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{value}</div>
       <div className="mt-1 text-sm text-white/52">{sub}</div>
     </div>
   );
 }
 
-function MiniChart({
-  data,
-  positive = true,
-}: {
-  data: number[];
-  positive?: boolean;
-}) {
+function MiniChart({ data, positive = true }: { data: number[]; positive?: boolean }) {
   const width = 420;
   const height = 150;
   const min = Math.min(...data);
@@ -228,40 +210,23 @@ function MiniChart({
 
   const areaPoints = `0,${height} ${points} ${width},${height}`;
   const lineColor = positive ? "#22d3ee" : "#fb7185";
-  const areaColor = positive
-    ? "rgba(34,211,238,0.14)"
-    : "rgba(251,113,133,0.14)";
+  const areaColor = positive ? "rgba(34,211,238,0.14)" : "rgba(251,113,133,0.14)";
 
   return (
     <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 sm:text-[11px]">
-            Price context
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 sm:text-[11px]">Price context</div>
           <div className="mt-1 text-sm text-white/60">1M trend</div>
         </div>
-        <div
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${
-            positive
-              ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
-              : "border-rose-400/20 bg-rose-400/10 text-rose-300"
-          }`}
-        >
+        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${positive ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" : "border-rose-400/20 bg-rose-400/10 text-rose-300"}`}>
           <LineChart className="h-4 w-4" />
           {positive ? "Uptrend intact" : "Trend under pressure"}
         </div>
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full sm:h-40">
         <polygon points={areaPoints} fill={areaColor} />
-        <polyline
-          fill="none"
-          stroke={lineColor}
-          strokeWidth="4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
+        <polyline fill="none" stroke={lineColor} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={points} />
       </svg>
       <div className="mt-3 flex items-center justify-between text-xs text-white/35">
         <span>1M ago</span>
@@ -271,39 +236,20 @@ function MiniChart({
   );
 }
 
-function EarlyLateGauge({
-  value,
-  label,
-  drivers,
-}: {
-  value: number;
-  label: string;
-  drivers: string[];
-}) {
+function EarlyLateGauge({ value, label, drivers }: { value: number; label: string; drivers: string[] }) {
   const display = Math.max(0, Math.min(100, value));
-
   return (
     <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
-            Early or late
-          </div>
-          <div className="mt-1 text-sm text-white/55">
-            Composite timing indicator
-          </div>
+          <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Early or late</div>
+          <div className="mt-1 text-sm text-white/55">Composite timing indicator</div>
         </div>
-        <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-sm text-white/65">
-          {label}
-        </div>
+        <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-sm text-white/65">{label}</div>
       </div>
-
       <div className="mt-5">
         <div className="relative h-3 overflow-hidden rounded-full bg-[linear-gradient(90deg,#22c55e_0%,#22d3ee_35%,#f59e0b_70%,#f43f5e_100%)]">
-          <div
-            className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#02060b] shadow-[0_0_0_4px_rgba(255,255,255,0.06)]"
-            style={{ left: `calc(${display}% - 10px)` }}
-          />
+          <div className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#02060b] shadow-[0_0_0_4px_rgba(255,255,255,0.06)]" style={{ left: `calc(${display}% - 10px)` }} />
         </div>
         <div className="mt-3 flex items-center justify-between text-xs text-white/40">
           <span>Early</span>
@@ -311,21 +257,15 @@ function EarlyLateGauge({
           <span>Late</span>
         </div>
       </div>
-
       <div className="mt-4 flex flex-wrap gap-2">
         {drivers.map((driver) => (
-          <span
-            key={driver}
-            className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/65"
-          >
+          <span key={driver} className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/65">
             {driver}
           </span>
         ))}
       </div>
-
       <div className="mt-4 text-sm text-white/68">
-        Aggregates price action, headline intensity, attention concentration,
-        crowding, and entry quality into a single timing read.
+        Aggregates price action, headline intensity, attention concentration, crowding, and entry quality into a single timing read.
       </div>
     </div>
   );
@@ -340,7 +280,7 @@ export default function NarrivLandingV2() {
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState("");
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
 
@@ -362,8 +302,7 @@ export default function NarrivLandingV2() {
       setQuery(data.symbol);
       setShowSuggestions(false);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load live report";
+      const message = err instanceof Error ? err.message : "Failed to load live report";
       setError(message);
     } finally {
       setLoading(false);
@@ -435,15 +374,9 @@ export default function NarrivLandingV2() {
           <aside className="rounded-[28px] border border-white/8 bg-[#080c13]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
-                  Narriv
-                </div>
-                <div className="mt-1 text-xl font-semibold sm:text-2xl">
-                  Watchlist
-                </div>
-                <div className="mt-1 text-sm text-white/45">
-                  Signals and alerts
-                </div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">Narriv</div>
+                <div className="mt-1 text-xl font-semibold sm:text-2xl">Watchlist</div>
+                <div className="mt-1 text-sm text-white/45">Signals and alerts</div>
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
                 <Sparkles className="h-5 w-5 text-cyan-300" />
@@ -464,19 +397,9 @@ export default function NarrivLandingV2() {
                   >
                     <div>
                       <div className="font-medium">{item.symbol}</div>
-                      <div className="text-xs text-white/45">
-                        Strength {item.score}
-                      </div>
+                      <div className="text-xs text-white/45">Strength {item.score}</div>
                     </div>
-                    <div
-                      className={`text-sm ${
-                        item.move.startsWith("+")
-                          ? "text-emerald-300"
-                          : "text-rose-300"
-                      }`}
-                    >
-                      {item.move}
-                    </div>
+                    <div className={`text-sm ${item.move.startsWith("+") ? "text-emerald-300" : "text-rose-300"}`}>{item.move}</div>
                   </button>
                 ))}
               </div>
@@ -488,15 +411,9 @@ export default function NarrivLandingV2() {
                 Why people trust it
               </div>
               <div className="mt-4 space-y-3 text-sm text-white/72">
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Live market quote context
-                </div>
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Recent headline ingestion
-                </div>
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">
-                  Signal synthesis and timing read
-                </div>
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Live market quote context</div>
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Recent headline ingestion</div>
+                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Signal synthesis and timing read</div>
               </div>
             </div>
           </aside>
@@ -509,26 +426,15 @@ export default function NarrivLandingV2() {
                     Turn market noise into a decision
                   </div>
                   <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-6xl">
-                    Know if the story behind an asset is{" "}
-                    <span className="text-cyan-300">worth betting on.</span>
+                    Know if the story behind an asset is <span className="text-cyan-300">worth betting on.</span>
                   </h1>
                   <p className="mt-5 max-w-2xl text-base leading-7 text-white/62 sm:text-lg sm:leading-8">
-                    Narriv blends price action, headlines, attention, and
-                    crowding into a simple read: strong, weak, early, or late.
+                    Narriv blends price action, headlines, attention, and crowding into a simple read: strong, weak, early, or late.
                   </p>
                   <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/48">
-                    <span className="inline-flex items-center gap-2">
-                      <Database className="h-4 w-4 text-cyan-300" /> Live
-                      market data
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <Globe2 className="h-4 w-4 text-cyan-300" /> Headline
-                      ingestion
-                    </span>
-                    <span className="inline-flex items-center gap-2">
-                      <BrainCircuit className="h-4 w-4 text-cyan-300" /> Signal
-                      synthesis
-                    </span>
+                    <span className="inline-flex items-center gap-2"><Database className="h-4 w-4 text-cyan-300" /> Live market data</span>
+                    <span className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-cyan-300" /> Headline ingestion</span>
+                    <span className="inline-flex items-center gap-2"><BrainCircuit className="h-4 w-4 text-cyan-300" /> Signal synthesis</span>
                   </div>
                 </div>
 
@@ -565,27 +471,17 @@ export default function NarrivLandingV2() {
                       {showSuggestions ? (
                         <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-[22px] border border-white/8 bg-[#0a0f17]/98 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur">
                           {searchLoading ? (
-                            <div className="px-4 py-3 text-sm text-white/45">
-                              Searching assets...
-                            </div>
+                            <div className="px-4 py-3 text-sm text-white/45">Searching assets...</div>
                           ) : suggestions.length > 0 ? (
                             suggestions.slice(0, 8).map((item) => (
                               <button
                                 key={`${item.symbol}-${item.name}`}
                                 onClick={() => selectSuggestion(item)}
-                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition hover:bg-white/[0.05] ${
-                                  selectedSymbol === item.symbol
-                                    ? "bg-white/[0.04]"
-                                    : ""
-                                }`}
+                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition hover:bg-white/[0.05] ${selectedSymbol === item.symbol ? "bg-white/[0.04]" : ""}`}
                               >
                                 <div>
-                                  <div className="font-medium text-white">
-                                    {item.symbol}
-                                  </div>
-                                  <div className="text-sm text-white/45">
-                                    {item.name}
-                                  </div>
+                                  <div className="font-medium text-white">{item.symbol}</div>
+                                  <div className="text-sm text-white/45">{item.name}</div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                   <span className="rounded-full border border-white/8 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45">
@@ -596,32 +492,23 @@ export default function NarrivLandingV2() {
                               </button>
                             ))
                           ) : (
-                            <div className="px-4 py-3 text-sm text-white/45">
-                              No matches yet. Press enter to try the ticker directly.
-                            </div>
+                            <div className="px-4 py-3 text-sm text-white/45">No matches yet. Press enter to try the ticker directly.</div>
                           )}
                         </div>
                       ) : null}
                     </div>
 
-                    <button
-                      onClick={runSearch}
-                      className="h-14 rounded-[18px] bg-[#20d7ff] px-6 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:text-lg"
-                    >
+                    <button onClick={runSearch} className="h-14 rounded-[18px] bg-[#20d7ff] px-6 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:text-lg">
                       {loading ? "Loading..." : "Generate Report"}
                     </button>
                   </div>
-                  <p className="mt-3 text-sm text-white/45">
-                    Search stocks, ETFs, or major crypto and get a live timing read.
-                  </p>
+                  <p className="mt-3 text-sm text-white/45">Search stocks, ETFs, or major crypto and get a live timing read.</p>
                 </div>
               </div>
             </div>
 
             {error ? (
-              <div className="rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-rose-200">
-                {error}
-              </div>
+              <div className="rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-rose-200">{error}</div>
             ) : null}
 
             <div className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
@@ -634,39 +521,17 @@ export default function NarrivLandingV2() {
                         {report.symbol} live signal read
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-                          {report.name}
-                        </h2>
-                        <div
-                          className={`rounded-full border px-3 py-1 text-sm ${tonePill(
-                            report.strength
-                          )}`}
-                        >
-                          {report.verdict}
-                        </div>
+                        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{report.name}</h2>
+                        <div className={`rounded-full border px-3 py-1 text-sm ${tonePill(report.strength)}`}>{report.verdict}</div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/45">
-                        <span className="inline-flex items-center gap-2">
-                          <Clock3 className="h-4 w-4" /> {report.updated}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 ${
-                            report.move.startsWith("+")
-                              ? "text-emerald-300"
-                              : "text-rose-300"
-                          }`}
-                        >
-                          {report.move.startsWith("+") ? (
-                            <ArrowUpRight className="h-4 w-4" />
-                          ) : (
-                            <ArrowDownRight className="h-4 w-4" />
-                          )}
+                        <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" /> {report.updated}</span>
+                        <span className={`inline-flex items-center gap-1 ${report.move.startsWith("+") ? "text-emerald-300" : "text-rose-300"}`}>
+                          {report.move.startsWith("+") ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                           {report.price} {report.move}
                         </span>
                       </div>
-                      <p className="mt-5 text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
-                        {report.whyNow}
-                      </p>
+                      <p className="mt-5 text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">{report.whyNow}</p>
                       <p className="mt-4 text-sm text-white/45">{report.trust}</p>
                     </div>
                   </div>
@@ -687,43 +552,24 @@ export default function NarrivLandingV2() {
 
                   <div className="mt-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
                     <MiniChart data={report.chart} positive={report.move.startsWith("+")} />
-                    <EarlyLateGauge
-                      value={report.earlyLate}
-                      label={report.earlyLateLabel}
-                      drivers={report.earlyLateDrivers}
-                    />
+                    <EarlyLateGauge value={report.earlyLate} label={report.earlyLateLabel} drivers={report.earlyLateDrivers} />
                   </div>
 
                   <div className="mt-6 grid gap-4 lg:grid-cols-2">
                     <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
-                        Dominant theme
-                      </div>
-                      <div className="mt-2 text-xl font-semibold text-white">
-                        {report.dominantTheme}
-                      </div>
-                      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
-                        Theme shift
-                      </div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Dominant theme</div>
+                      <div className="mt-2 text-xl font-semibold text-white">{report.dominantTheme}</div>
+                      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Theme shift</div>
                       <div className="mt-2 text-white/68">{report.themeShift}</div>
                     </div>
 
                     <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
-                        Why this read
-                      </div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Why this read</div>
                       <div className="mt-4 space-y-3">
                         {report.explainers.map((item) => (
-                          <div
-                            key={item.label}
-                            className="rounded-2xl border border-white/6 bg-black/20 p-4"
-                          >
-                            <div className="text-sm font-medium text-white">
-                              {item.label}
-                            </div>
-                            <div className="mt-1 text-sm text-white/62">
-                              {item.detail}
-                            </div>
+                          <div key={item.label} className="rounded-2xl border border-white/6 bg-black/20 p-4">
+                            <div className="text-sm font-medium text-white">{item.label}</div>
+                            <div className="mt-1 text-sm text-white/62">{item.detail}</div>
                           </div>
                         ))}
                       </div>
@@ -740,22 +586,9 @@ export default function NarrivLandingV2() {
                   </div>
                   <div className="mt-5 space-y-3">
                     {report.changed.map((item) => (
-                      <div
-                        key={item.label}
-                        className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4"
-                      >
-                        <div className="max-w-[75%] text-white/75">
-                          {item.label}
-                        </div>
-                        <div
-                          className={`rounded-full px-3 py-1 text-sm ${
-                            item.tone === "down"
-                              ? "bg-rose-400/10 text-rose-300"
-                              : "bg-emerald-400/10 text-emerald-300"
-                          }`}
-                        >
-                          {item.value}
-                        </div>
+                      <div key={item.label} className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4">
+                        <div className="max-w-[75%] text-white/75">{item.label}</div>
+                        <div className={`rounded-full px-3 py-1 text-sm ${item.tone === "down" ? "bg-rose-400/10 text-rose-300" : "bg-emerald-400/10 text-emerald-300"}`}>{item.value}</div>
                       </div>
                     ))}
                   </div>
@@ -765,9 +598,7 @@ export default function NarrivLandingV2() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-2xl font-semibold">Signal Blend</div>
-                      <div className="mt-1 text-sm text-white/45">
-                        What is driving this setup
-                      </div>
+                      <div className="mt-1 text-sm text-white/45">What is driving this setup</div>
                     </div>
                     <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/45">
                       breakdown view
@@ -783,10 +614,7 @@ export default function NarrivLandingV2() {
                             <span>{displayValue}%</span>
                           </div>
                           <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                            <div
-                              className={`h-2 rounded-full ${barTone(displayValue)}`}
-                              style={{ width: `${displayValue}%` }}
-                            />
+                            <div className={`h-2 rounded-full ${barTone(displayValue)}`} style={{ width: `${displayValue}%` }} />
                           </div>
                         </div>
                       );
@@ -799,30 +627,18 @@ export default function NarrivLandingV2() {
                     <ShieldAlert className="h-6 w-6 text-amber-300" />
                     Fade Signals
                   </div>
-                  <div className="mt-2 text-sm text-white/45">
-                    Signals that suggest the story may be too obvious, too stretched, or too crowded.
-                  </div>
+                  <div className="mt-2 text-sm text-white/45">Signals that suggest the story may be too obvious, too stretched, or too crowded.</div>
                   <div className="mt-5 space-y-4">
                     {report.fadeSignals.map((item) => {
                       const displayValue = Math.max(0, Math.min(100, Number(item.value)));
                       return (
-                        <div
-                          key={item.label}
-                          className="rounded-2xl border border-white/6 bg-white/[0.03] p-4"
-                        >
+                        <div key={item.label} className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
                           <div className="mb-2 flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-white">
-                              {item.label}
-                            </div>
-                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">
-                              {displayValue}
-                            </div>
+                            <div className="text-sm font-medium text-white">{item.label}</div>
+                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">{displayValue}</div>
                           </div>
                           <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                            <div
-                              className="h-2 rounded-full bg-amber-300"
-                              style={{ width: `${displayValue}%` }}
-                            />
+                            <div className="h-2 rounded-full bg-amber-300" style={{ width: `${displayValue}%` }} />
                           </div>
                           <div className="mt-3 text-sm text-white/62">{item.note}</div>
                         </div>
@@ -830,39 +646,22 @@ export default function NarrivLandingV2() {
                     })}
                   </div>
                   <div className="mt-5 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70 sm:text-[11px]">
-                      Narriv take
-                    </div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70 sm:text-[11px]">Narriv take</div>
                     <div className="mt-2 text-sm text-white/75">{report.fadeTake}</div>
                   </div>
                 </div>
 
                 <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="mb-4 flex items-center gap-2 text-lg font-medium">
-                    <TrendingUp className="h-5 w-5 text-emerald-300" /> Bull case
-                  </div>
+                  <div className="mb-4 flex items-center gap-2 text-lg font-medium"><TrendingUp className="h-5 w-5 text-emerald-300" /> Bull case</div>
                   <div className="space-y-3">
                     {report.bull.map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
-                      >
-                        {item}
-                      </div>
+                      <div key={item} className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75">{item}</div>
                     ))}
                   </div>
-
-                  <div className="mb-4 mt-6 flex items-center gap-2 text-lg font-medium">
-                    <TrendingDown className="h-5 w-5 text-rose-300" /> Bear case
-                  </div>
+                  <div className="mb-4 mt-6 flex items-center gap-2 text-lg font-medium"><TrendingDown className="h-5 w-5 text-rose-300" /> Bear case</div>
                   <div className="space-y-3">
                     {report.bear.map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
-                      >
-                        {item}
-                      </div>
+                      <div key={item} className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75">{item}</div>
                     ))}
                   </div>
                 </div>
