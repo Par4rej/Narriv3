@@ -123,7 +123,6 @@ function fallbackReport(
   const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
   const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
 
-
   let verdict = "Mixed setup";
   if (strength >= 80 && crowding >= 75) verdict = "Strong, but crowded";
   else if (strength >= 75) verdict = "Strengthening";
@@ -148,19 +147,19 @@ function fallbackReport(
     fade,
     changed: [
       {
-        label: "Live price move updated",
+        label: `Price moved ${dp >= 0 ? "up" : "down"} ${Math.abs(dp).toFixed(1)}% today`,
         value: `${dp >= 0 ? "+" : ""}${dp.toFixed(1)}`,
         tone: dp >= 0 ? "up" : "down",
       },
       {
-        label: "Headline count refreshed",
-        value: `+${headlines.length}`,
+        label: `Headline flow refreshed with ${headlines.length} recent items`,
+        value: `${headlines.length}`,
         tone: "up",
       },
       {
-        label: "Report regenerated from fresh inputs",
-        value: "+1",
-        tone: "up",
+        label: `Entry quality currently reads ${entry}`,
+        value: `${entry}`,
+        tone: entry >= 60 ? "up" : "down",
       },
     ],
     bull: [
@@ -196,8 +195,8 @@ function fallbackReport(
       },
     ],
     sourceMix: [
-      { label: "Price confirmation", value: clamp(60 + Math.abs(dp) * 3) },
-      { label: "Headline flow", value: clamp(35 + headlines.length * 8) },
+      { label: "Price confirmation", value: clamp(35 + Math.min(Math.abs(dp) * 8, 45)) },
+      { label: "Headline flow", value: clamp(25 + headlines.length * 10) },
       { label: "Signal freshness", value: 82 },
       { label: "Crowding estimate", value: crowding },
       { label: "AI synthesis confidence", value: confidence },
@@ -231,6 +230,7 @@ async function generateAiReport(params: {
   crowding: number;
   confidence: number;
   fade: number;
+  entry: number;
   headlines: string[];
 }): Promise<Partial<ReportResponse> | null> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -258,12 +258,14 @@ Rules:
 - value and score must be integers from 0 to 100 where applicable.
 - Do not claim any social sources that were not provided.
 - This report only has live market quote data and recent headlines right now.
+- Consider entry quality in the framing.
 
 Inputs:
 Asset: ${params.assetName} (${params.symbol})
 Price: ${params.price}
 1D move: ${params.move}
 Strength estimate: ${params.strength}
+Entry estimate: ${params.entry}
 Crowding estimate: ${params.crowding}
 Confidence estimate: ${params.confidence}
 Fade estimate: ${params.fade}
@@ -339,7 +341,7 @@ export async function GET(req: NextRequest) {
         );
         if (profile?.name) profileName = profile.name;
       } catch {
-        // keep fallback name
+        // ignore
       }
     }
 
@@ -387,17 +389,16 @@ export async function GET(req: NextRequest) {
         : 0;
 
     const strength = clamp(
-  52 + Math.min(headlines.length * 5, 25) + Math.abs(movePct) * 2
-);
-const crowding = clamp(
-  30 + Math.min(headlines.length * 6, 30) + Math.max(movePct, 0) * 2.5
-);
-const confidence = clamp(
-  56 + Math.min(headlines.length * 5, 25) + (currentPrice > 0 ? 8 : 0)
-);
-const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
-const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
-
+      52 + Math.min(headlines.length * 5, 25) + Math.abs(movePct) * 2
+    );
+    const crowding = clamp(
+      30 + Math.min(headlines.length * 6, 30) + Math.max(movePct, 0) * 2.5
+    );
+    const confidence = clamp(
+      56 + Math.min(headlines.length * 5, 25) + (currentPrice > 0 ? 8 : 0)
+    );
+    const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
+    const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
 
     const base = fallbackReport(asset, currentPrice, movePct, headlines);
     base.name = profileName;
@@ -410,6 +411,7 @@ const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fad
       price: base.price,
       move: base.move,
       strength,
+      entry,
       crowding,
       confidence,
       fade,
