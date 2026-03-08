@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Sparkles,
@@ -26,6 +26,50 @@ import {
 type AssetKey = "NVDA" | "BTC" | "TSLA";
 type TabKey = "overview" | "evidence" | "fade";
 
+type ChangedItem = {
+  label: string;
+  value: string;
+  tone: "up" | "down";
+};
+
+type EvidenceItem = {
+  kind: "News" | "Market" | "AI";
+  title: string;
+  detail: string;
+  tone: "Bullish" | "Bearish" | "Mixed";
+};
+
+type SourceContribution = {
+  label: string;
+  value: number;
+};
+
+type FadeItem = {
+  name: string;
+  score: number;
+  note: string;
+};
+
+type ReportResponse = {
+  symbol: string;
+  name: string;
+  price: string;
+  move: string;
+  updated: string;
+  verdict: string;
+  whyNow: string;
+  strength: number;
+  crowding: number;
+  confidence: number;
+  fade: number;
+  changed: ChangedItem[];
+  bull: string[];
+  bear: string[];
+  evidence: EvidenceItem[];
+  sourceMix: SourceContribution[];
+  fadeBoard: FadeItem[];
+};
+
 const tabItems: Array<{
   key: TabKey;
   label: string;
@@ -36,245 +80,6 @@ const tabItems: Array<{
   { key: "fade", label: "Fade Board", Icon: ShieldAlert },
 ];
 
-const assets = {
-  NVDA: {
-    symbol: "NVDA",
-    name: "NVIDIA",
-    price: "$154.20",
-    move: "+1.2%",
-    strength: 78,
-    confidence: 81,
-    crowding: 72,
-    fade: 41,
-    updated: "8 min ago",
-    verdict: "Strong, but crowded",
-    whyNow:
-      "AI infrastructure remains the dominant market story, but upside is less clean than earlier phases because crowding is rising faster than signal quality.",
-    changed: [
-      { label: "Price confirmed the dominant thesis", value: "+6", tone: "up" },
-      { label: "Influencer velocity cooled slightly", value: "-1", tone: "down" },
-      { label: "Consensus pressure moved higher", value: "+8", tone: "up" },
-    ],
-    bull: [
-      "AI capex still owns premium financial mindshare",
-      "Price is confirming instead of rejecting the story",
-      "High-quality discussion remains concentrated among serious market participants",
-    ],
-    bear: [
-      "The setup is increasingly consensus and harder to surprise positively",
-      "Story strength may be outrunning near-term upside asymmetry",
-      "Late-cycle commentary is rising into event-heavy windows",
-    ],
-    evidence: [
-      {
-        kind: "News",
-        icon: Newspaper,
-        title: "AI capex framing remains dominant in market coverage",
-        detail:
-          "Coverage quality remains high and consistently points back to NVIDIA as a core beneficiary.",
-        tone: "Bullish",
-      },
-      {
-        kind: "Social",
-        icon: MessageSquareText,
-        title: "High-engagement discussion is still elevated",
-        detail:
-          "Conversation quality remains strong, but incremental acceleration is slower than earlier surges.",
-        tone: "Bullish",
-      },
-      {
-        kind: "Video",
-        icon: PlaySquare,
-        title: "Creator ecosystem remains constructive but more expectation-sensitive",
-        detail:
-          "Video narratives still support the thesis, though commentary is more crowded and valuation-aware.",
-        tone: "Mixed",
-      },
-    ],
-    sourceMix: [
-      ["Price confirmation", 83],
-      ["News and opinion", 77],
-      ["YouTube creator layer", 68],
-      ["X / social pulse", 62],
-      ["Reddit communities", 54],
-    ] as Array<[string, number]>,
-    fadeBoard: [
-      {
-        name: "Late TV momentum chatter",
-        score: 67,
-        note: "Useful as a crowding input when the story is already saturated.",
-      },
-      {
-        name: "Retail euphoric spike accounts",
-        score: 73,
-        note: "Historically noisy when expectations get stretched too quickly.",
-      },
-      {
-        name: "Jim Cramer counter-watch",
-        score: 52,
-        note: "Novelty sentiment input only, not a mechanical signal.",
-      },
-    ],
-  },
-  BTC: {
-    symbol: "BTC",
-    name: "Bitcoin",
-    price: "$96,412",
-    move: "+3.8%",
-    strength: 84,
-    confidence: 77,
-    crowding: 79,
-    fade: 36,
-    updated: "4 min ago",
-    verdict: "Very strong, but overheated",
-    whyNow:
-      "Bitcoin is being carried by a powerful institutional and macro narrative, but sentiment is running hot and the story is increasingly crowded.",
-    changed: [
-      { label: "Headline tone stayed positive", value: "+5", tone: "up" },
-      { label: "Social velocity accelerated", value: "+7", tone: "up" },
-      { label: "Crowding risk rose materially", value: "+10", tone: "up" },
-    ],
-    bull: [
-      "Institutional and macro framing keeps expanding the audience",
-      "Price confirmation remains strong",
-      "Media share remains dominant relative to most crypto assets",
-    ],
-    bear: [
-      "Crowding and sentiment heat are rising fast",
-      "Policy and macro headlines can abruptly reverse tone",
-      "Part of the social velocity is reflexive rather than fundamental",
-    ],
-    evidence: [
-      {
-        kind: "News",
-        icon: Newspaper,
-        title: "Coverage volume remains materially above baseline",
-        detail:
-          "Headline flow is broad, positive, and persistent across major outlets.",
-        tone: "Bullish",
-      },
-      {
-        kind: "Social",
-        icon: MessageSquareText,
-        title: "High-engagement posts continue to accelerate",
-        detail:
-          "Reach is expanding quickly, though quality varies more than institutional coverage.",
-        tone: "Bullish",
-      },
-      {
-        kind: "Video",
-        icon: PlaySquare,
-        title: "Creator attention remains elevated",
-        detail:
-          "Macro hedge framing is still being amplified aggressively in video ecosystems.",
-        tone: "Bullish",
-      },
-    ],
-    sourceMix: [
-      ["Price confirmation", 88],
-      ["News and opinion", 79],
-      ["X / social pulse", 75],
-      ["YouTube creator layer", 71],
-      ["Reddit communities", 58],
-    ] as Array<[string, number]>,
-    fadeBoard: [
-      {
-        name: "Tourist crypto hype",
-        score: 76,
-        note: "Useful as a late-cycle heat input.",
-      },
-      {
-        name: "Macro doom-whipsaw accounts",
-        score: 43,
-        note: "Can create false urgency spikes.",
-      },
-      {
-        name: "Jim Cramer counter-watch",
-        score: 58,
-        note: "Novelty sentiment input only.",
-      },
-    ],
-  },
-  TSLA: {
-    symbol: "TSLA",
-    name: "Tesla",
-    price: "$242.87",
-    move: "-1.7%",
-    strength: 65,
-    confidence: 62,
-    crowding: 54,
-    fade: 69,
-    updated: "11 min ago",
-    verdict: "Loud, conflicted, and noisy",
-    whyNow:
-      "Tesla remains one of the internet's loudest stories, but the signal stack is more chaotic than clean. Attention is huge, conviction is fragmented, and counter-signals are meaningful.",
-    changed: [
-      { label: "Counter-signal voices rose", value: "+4", tone: "up" },
-      { label: "Confidence slipped", value: "-3", tone: "down" },
-      { label: "Story stayed noisy", value: "+1", tone: "up" },
-    ],
-    bull: [
-      "Few public equities command this much sustained mindshare",
-      "Attention spikes can reignite quickly with catalyst flow",
-      "Polarization can create opportunity if the story resolves cleanly",
-    ],
-    bear: [
-      "Signal quality is noisier than top-tier setups",
-      "Counter-indicator inputs are elevated",
-      "Price and attention often diverge in uncomfortable ways",
-    ],
-    evidence: [
-      {
-        kind: "News",
-        icon: Newspaper,
-        title: "Coverage remains constant but split in tone",
-        detail:
-          "The asset receives nonstop attention, but the framing swings rapidly.",
-        tone: "Mixed",
-      },
-      {
-        kind: "Social",
-        icon: MessageSquareText,
-        title: "High velocity, low consensus",
-        detail:
-          "Engagement is massive, but agreement across camps is weak.",
-        tone: "Mixed",
-      },
-      {
-        kind: "Video",
-        icon: PlaySquare,
-        title: "Creator ecosystem is hyperactive but uneven",
-        detail: "Narrative breadth is strong, but reliability varies widely.",
-        tone: "Mixed",
-      },
-    ],
-    sourceMix: [
-      ["Social pulse", 80],
-      ["News and opinion", 74],
-      ["YouTube creator layer", 73],
-      ["Price confirmation", 49],
-      ["Reddit communities", 61],
-    ] as Array<[string, number]>,
-    fadeBoard: [
-      {
-        name: "Headline-chasing TV panels",
-        score: 71,
-        note: "Often react after sentiment has already swung.",
-      },
-      {
-        name: "Retail fight-club accounts",
-        score: 79,
-        note: "High reach, low clarity.",
-      },
-      {
-        name: "Jim Cramer counter-watch",
-        score: 61,
-        note: "Novelty sentiment input only.",
-      },
-    ],
-  },
-};
-
 const watchlist = [
   { symbol: "NVDA", score: 78, move: "+1.2%" },
   { symbol: "BTC", score: 84, move: "+3.8%" },
@@ -282,6 +87,80 @@ const watchlist = [
   { symbol: "ETH", score: 74, move: "+2.4%" },
   { symbol: "MSTR", score: 80, move: "+4.1%" },
 ];
+
+const fallbackReport: ReportResponse = {
+  symbol: "NVDA",
+  name: "NVIDIA",
+  price: "$154.20",
+  move: "+1.2%",
+  updated: "loading...",
+  verdict: "Loading live report",
+  whyNow:
+    "Narriv is pulling live market data and recent headlines to generate a fresh report.",
+  strength: 78,
+  crowding: 72,
+  confidence: 81,
+  fade: 41,
+  changed: [
+    { label: "Fetching quote", value: "+1", tone: "up" },
+    { label: "Fetching recent headlines", value: "+1", tone: "up" },
+    { label: "Generating AI summary", value: "+1", tone: "up" },
+  ],
+  bull: [
+    "Live report generation is in progress",
+    "Price and headline data will refresh on search",
+    "This page is now wired for real backend data",
+  ],
+  bear: [
+    "Social platforms are not live yet in this version",
+    "Crowding and fade are currently derived from the first real data layer",
+    "This is a shipping MVP, not the full ingestion stack",
+  ],
+  evidence: [
+    {
+      kind: "Market",
+      title: "Loading live market pulse",
+      detail: "Current price and move will appear after the first fetch completes.",
+      tone: "Mixed",
+    },
+    {
+      kind: "News",
+      title: "Loading recent headlines",
+      detail: "Recent news flow is being fetched from the backend.",
+      tone: "Mixed",
+    },
+    {
+      kind: "AI",
+      title: "Generating decision brief",
+      detail: "OpenAI is shaping the verdict and supporting sections.",
+      tone: "Mixed",
+    },
+  ],
+  sourceMix: [
+    { label: "Price confirmation", value: 75 },
+    { label: "Headline flow", value: 60 },
+    { label: "Signal freshness", value: 80 },
+    { label: "Crowding estimate", value: 62 },
+    { label: "AI synthesis confidence", value: 78 },
+  ],
+  fadeBoard: [
+    {
+      name: "Late consensus media chatter",
+      score: 67,
+      note: "Useful as a crowding input when the story is widely known.",
+    },
+    {
+      name: "Retail euphoria risk",
+      score: 73,
+      note: "Higher when attention and momentum run hotter than clarity.",
+    },
+    {
+      name: "Jim Cramer counter-watch",
+      score: 52,
+      note: "Novelty input only, not a mechanical trading signal.",
+    },
+  ],
+};
 
 function tonePill(score: number) {
   if (score >= 80) {
@@ -321,31 +200,44 @@ function MiniMetric({
 
 export default function NarrivPage() {
   const [query, setQuery] = useState("NVDA");
-  const [selected, setSelected] = useState<AssetKey>("NVDA");
   const [tab, setTab] = useState<TabKey>("overview");
+  const [report, setReport] = useState<ReportResponse>(fallbackReport);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
-  const asset = assets[selected];
+
+  async function loadReport(asset: string) {
+    try {
+      setLoading(true);
+      setError("");
+      const res = await fetch(`/api/report?asset=${encodeURIComponent(asset)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to load report");
+      }
+      const data: ReportResponse = await res.json();
+      setReport(data);
+      setQuery(data.symbol);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load live report";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function runSearch() {
-    if (normalized in assets) {
-      setSelected(normalized as AssetKey);
-      return;
-    }
-    if (normalized.includes("NVIDIA")) {
-      setSelected("NVDA");
-      return;
-    }
-    if (normalized.includes("BITCOIN")) {
-      setSelected("BTC");
-      return;
-    }
-    if (normalized.includes("TESLA")) {
-      setSelected("TSLA");
-      return;
-    }
-    setSelected("NVDA");
+    if (!normalized) return;
+    loadReport(normalized);
   }
+
+  useEffect(() => {
+    loadReport("NVDA");
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#02060b] text-white">
@@ -376,12 +268,7 @@ export default function NarrivPage() {
                 {watchlist.map((item) => (
                   <button
                     key={item.symbol}
-                    onClick={() => {
-                      if (item.symbol in assets) {
-                        setSelected(item.symbol as AssetKey);
-                        setQuery(item.symbol);
-                      }
-                    }}
+                    onClick={() => loadReport(item.symbol)}
                     className="flex w-full items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]"
                   >
                     <div>
@@ -458,20 +345,17 @@ export default function NarrivPage() {
                       onClick={runSearch}
                       className="rounded-[20px] bg-[#20d7ff] px-6 text-lg font-medium text-black transition hover:brightness-105"
                     >
-                      Generate Report
+                      {loading ? "Loading..." : "Generate Report"}
                     </button>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {Object.keys(assets).map((ticker) => (
+                    {(["NVDA", "BTC", "TSLA"] as AssetKey[]).map((ticker) => (
                       <button
                         key={ticker}
-                        onClick={() => {
-                          setSelected(ticker as AssetKey);
-                          setQuery(ticker);
-                        }}
+                        onClick={() => loadReport(ticker)}
                         className={`rounded-full border px-4 py-2 text-sm transition ${
-                          selected === ticker
+                          report.symbol === ticker
                             ? "border-cyan-400/40 bg-cyan-400/10 text-cyan-200"
                             : "border-white/8 bg-white/[0.03] text-white/60 hover:bg-white/[0.05]"
                         }`}
@@ -479,11 +363,20 @@ export default function NarrivPage() {
                         {ticker}
                       </button>
                     ))}
-                    <button className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-sm text-white/45">
+                    <button
+                      onClick={() => loadReport(report.symbol)}
+                      className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-4 py-2 text-sm text-white/45"
+                    >
                       <RefreshCw className="h-4 w-4" />
-                      Cached live mode
+                      Refresh live
                     </button>
                   </div>
+
+                  {error ? (
+                    <div className="mt-4 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200">
+                      {error}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -495,59 +388,59 @@ export default function NarrivPage() {
                     <div className="max-w-3xl">
                       <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200">
                         <Radar className="h-3.5 w-3.5" />
-                        {asset.symbol} decision brief
+                        {report.symbol} decision brief
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
                         <h2 className="text-4xl font-semibold tracking-tight">
-                          {asset.name}
+                          {report.name}
                         </h2>
                         <div
                           className={`rounded-full border px-3 py-1 text-sm ${tonePill(
-                            asset.strength
+                            report.strength
                           )}`}
                         >
-                          {asset.verdict}
+                          {report.verdict}
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/45">
                         <span className="inline-flex items-center gap-2">
                           <Clock3 className="h-4 w-4" />
-                          Updated {asset.updated}
+                          Updated {report.updated}
                         </span>
                         <span
                           className={`inline-flex items-center gap-1 ${
-                            asset.move.startsWith("+")
+                            report.move.startsWith("+")
                               ? "text-emerald-300"
                               : "text-rose-300"
                           }`}
                         >
-                          {asset.move.startsWith("+") ? (
+                          {report.move.startsWith("+") ? (
                             <ArrowUpRight className="h-4 w-4" />
                           ) : (
                             <ArrowDownRight className="h-4 w-4" />
                           )}
-                          {asset.price} {asset.move}
+                          {report.price} {report.move}
                         </span>
                       </div>
                       <p className="mt-5 text-xl leading-9 text-white/72">
-                        {asset.whyNow}
+                        {report.whyNow}
                       </p>
                     </div>
 
                     <div className="min-w-[240px]">
                       <div
                         className={`rounded-[30px] border p-6 text-center backdrop-blur ${tonePill(
-                          asset.strength
+                          report.strength
                         )}`}
                       >
                         <div className="text-[11px] uppercase tracking-[0.22em] text-white/50">
                           Verdict
                         </div>
                         <div className="mt-3 text-2xl font-semibold text-white">
-                          {asset.verdict}
+                          {report.verdict}
                         </div>
                         <div className="mt-4 text-sm text-white/70">
-                          Strength {asset.strength}
+                          Strength {report.strength}
                         </div>
                       </div>
                     </div>
@@ -556,17 +449,17 @@ export default function NarrivPage() {
                   <div className="mt-6 grid gap-4 md:grid-cols-3">
                     <MiniMetric
                       label="Strength"
-                      value={asset.strength}
+                      value={report.strength}
                       sub="story power"
                     />
                     <MiniMetric
                       label="Crowding"
-                      value={asset.crowding}
+                      value={report.crowding}
                       sub="consensus pressure"
                     />
                     <MiniMetric
                       label="Confidence"
-                      value={asset.confidence}
+                      value={report.confidence}
                       sub="signal quality"
                     />
                   </div>
@@ -598,7 +491,7 @@ export default function NarrivPage() {
                           Bull Case
                         </div>
                         <div className="space-y-3">
-                          {asset.bull.map((item) => (
+                          {report.bull.map((item) => (
                             <div
                               key={item}
                               className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
@@ -615,7 +508,7 @@ export default function NarrivPage() {
                           Bear Case
                         </div>
                         <div className="space-y-3">
-                          {asset.bear.map((item) => (
+                          {report.bear.map((item) => (
                             <div
                               key={item}
                               className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75"
@@ -630,8 +523,14 @@ export default function NarrivPage() {
 
                   {tab === "evidence" && (
                     <div className="mt-6 space-y-4">
-                      {asset.evidence.map((item) => {
-                        const Icon = item.icon;
+                      {report.evidence.map((item) => {
+                        const Icon =
+                          item.kind === "News"
+                            ? Newspaper
+                            : item.kind === "Market"
+                            ? Activity
+                            : Sparkles;
+
                         return (
                           <div
                             key={item.title}
@@ -658,6 +557,8 @@ export default function NarrivPage() {
                                 className={`rounded-full border px-3 py-1 text-sm ${
                                   item.tone === "Bullish"
                                     ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                                    : item.tone === "Bearish"
+                                    ? "border-rose-400/20 bg-rose-400/10 text-rose-300"
                                     : "border-amber-400/20 bg-amber-400/10 text-amber-300"
                                 }`}
                               >
@@ -672,7 +573,7 @@ export default function NarrivPage() {
 
                   {tab === "fade" && (
                     <div className="mt-6 grid gap-4 lg:grid-cols-3">
-                      {asset.fadeBoard.map((item) => (
+                      {report.fadeBoard.map((item) => (
                         <div
                           key={item.name}
                           className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5"
@@ -710,7 +611,7 @@ export default function NarrivPage() {
                     What changed
                   </div>
                   <div className="mt-5 space-y-3">
-                    {asset.changed.map((item) => (
+                    {report.changed.map((item) => (
                       <div
                         key={item.label}
                         className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4"
@@ -747,16 +648,16 @@ export default function NarrivPage() {
                     </button>
                   </div>
                   <div className="mt-5 space-y-4">
-                    {asset.sourceMix.map(([label, value]) => (
-                      <div key={label}>
+                    {report.sourceMix.map((item) => (
+                      <div key={item.label}>
                         <div className="mb-2 flex items-center justify-between text-sm text-white/65">
-                          <span>{label}</span>
-                          <span>{value}%</span>
+                          <span>{item.label}</span>
+                          <span>{item.value}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-white/8">
                           <div
-                            className={`h-2 rounded-full ${barTone(value)}`}
-                            style={{ width: `${value}%` }}
+                            className={`h-2 rounded-full ${barTone(item.value)}`}
+                            style={{ width: `${item.value}%` }}
                           />
                         </div>
                       </div>
@@ -785,4 +686,3 @@ export default function NarrivPage() {
     </main>
   );
 }
-
