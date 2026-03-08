@@ -12,8 +12,6 @@ import {
   TrendingUp,
   TrendingDown,
   Newspaper,
-  MessageSquareText,
-  PlaySquare,
   Activity,
   ChevronRight,
   Bell,
@@ -188,11 +186,13 @@ function MiniMetric({
   sub: string;
 }) {
   return (
-    <div className="rounded-[26px] border border-white/8 bg-white/[0.03] p-5">
-      <div className="text-[11px] uppercase tracking-[0.18em] text-white/42">
+    <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[26px] sm:p-5">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">
         {label}
       </div>
-      <div className="mt-3 text-3xl font-semibold text-white">{value}</div>
+      <div className="mt-2 text-2xl font-semibold text-white sm:mt-3 sm:text-3xl">
+        {value}
+      </div>
       <div className="mt-1 text-sm text-white/52">{sub}</div>
     </div>
   );
@@ -241,15 +241,17 @@ export default function NarrivPage() {
 
   return (
     <main className="min-h-screen bg-[#02060b] text-white">
-      <div className="mx-auto max-w-[1560px] px-6 py-6">
-        <div className="grid gap-6 xl:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="rounded-[30px] border border-white/8 bg-[#080c13]/92 p-5 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur">
+      <div className="mx-auto max-w-[1560px] px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
+        <div className="grid gap-4 xl:grid-cols-[260px_minmax(0,1fr)] xl:gap-6">
+          <aside className="rounded-[24px] border border-white/8 bg-[#080c13]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur sm:rounded-[30px] sm:p-5">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">
                   Narriv
                 </div>
-                <div className="mt-1 text-2xl font-semibold">Watchlist</div>
+                <div className="mt-1 text-xl font-semibold sm:text-2xl">
+                  Watchlist
+                </div>
                 <div className="mt-1 text-sm text-white/45">
                   Signals and alerts
                 </div>
@@ -259,7 +261,7 @@ export default function NarrivPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4">
+            <div className="mt-5 rounded-[20px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4 sm:mt-6 sm:rounded-[24px]">
               <div className="flex items-center gap-2 text-sm text-white/55">
                 <Activity className="h-4 w-4 text-emerald-300" />
                 Tracked Assets
@@ -291,7 +293,7 @@ export default function NarrivPage() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="mt-5 rounded-[20px] border border-white/8 bg-white/[0.03] p-4 sm:mt-6 sm:rounded-[24px]">
               <div className="flex items-center gap-2 text-sm text-white/55">
                 <Bell className="h-4 w-4 text-cyan-300" />
                 Suggested Alerts
@@ -310,26 +312,26 @@ export default function NarrivPage() {
             </div>
           </aside>
 
-          <section className="space-y-6">
-            <div className="rounded-[36px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-7 shadow-[0_0_100px_rgba(0,0,0,0.45)]">
-              <div className="grid gap-7 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
+          <section className="space-y-4 sm:space-y-6">
+            <div className="rounded-[24px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-4 shadow-[0_0_100px_rgba(0,0,0,0.45)] sm:rounded-[36px] sm:p-6 lg:p-7">
+              <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr] xl:items-end">
                 <div className="max-w-3xl">
-                  <div className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.04] px-4 py-2 text-[11px] uppercase tracking-[0.24em] text-white/65">
+                  <div className="inline-flex items-center rounded-full border border-white/8 bg-white/[0.04] px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-white/65 sm:px-4 sm:text-[11px]">
                     Robinhood feature demo
                   </div>
-                  <h1 className="mt-5 text-5xl font-semibold tracking-tight sm:text-6xl">
+                  <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:mt-5 sm:text-5xl lg:text-6xl">
                     Narrative signals,{" "}
                     <span className="text-cyan-300">ranked and usable.</span>
                   </h1>
-                  <p className="mt-5 max-w-2xl text-lg leading-8 text-white/60">
+                  <p className="mt-4 max-w-2xl text-base leading-7 text-white/60 sm:mt-5 sm:text-lg sm:leading-8">
                     The fastest way to know whether the story around an asset is
                     getting stronger, weaker, or too crowded to trust.
                   </p>
                 </div>
 
-                <div className="rounded-[28px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur">
-                  <div className="flex gap-3">
-                    <div className="flex flex-1 items-center gap-3 rounded-[20px] bg-black/30 px-4">
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur sm:rounded-[28px]">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex flex-1 items-center gap-3 rounded-[18px] bg-black/30 px-4 sm:rounded-[20px]">
                       <Search className="h-5 w-5 text-white/40" />
                       <input
                         value={query}
@@ -337,13 +339,13 @@ export default function NarrivPage() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") runSearch();
                         }}
-                        className="h-14 w-full bg-transparent text-lg outline-none placeholder:text-white/30"
+                        className="h-14 w-full bg-transparent text-base outline-none placeholder:text-white/30 sm:text-lg"
                         placeholder="Try NVDA, BTC, or TSLA"
                       />
                     </div>
                     <button
                       onClick={runSearch}
-                      className="rounded-[20px] bg-[#20d7ff] px-6 text-lg font-medium text-black transition hover:brightness-105"
+                      className="h-14 rounded-[18px] bg-[#20d7ff] px-5 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:px-6 sm:text-lg"
                     >
                       {loading ? "Loading..." : "Generate Report"}
                     </button>
@@ -381,17 +383,17 @@ export default function NarrivPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
-              <section className="space-y-6">
-                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-7 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex flex-col gap-6 border-b border-white/8 pb-6 xl:flex-row xl:items-start xl:justify-between">
+            <div className="grid gap-4 2xl:grid-cols-[1.25fr_0.75fr] 2xl:gap-6">
+              <section className="space-y-4 sm:space-y-6">
+                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-7">
+                  <div className="flex flex-col gap-5 border-b border-white/8 pb-5 sm:gap-6 sm:pb-6 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200">
                         <Radar className="h-3.5 w-3.5" />
                         {report.symbol} decision brief
                       </div>
                       <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <h2 className="text-4xl font-semibold tracking-tight">
+                        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
                           {report.name}
                         </h2>
                         <div
@@ -422,21 +424,21 @@ export default function NarrivPage() {
                           {report.price} {report.move}
                         </span>
                       </div>
-                      <p className="mt-5 text-xl leading-9 text-white/72">
+                      <p className="mt-5 text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
                         {report.whyNow}
                       </p>
                     </div>
 
-                    <div className="min-w-[240px]">
+                    <div className="w-full min-w-0 xl:w-auto xl:min-w-[240px]">
                       <div
-                        className={`rounded-[30px] border p-6 text-center backdrop-blur ${tonePill(
+                        className={`rounded-[24px] border p-5 text-center backdrop-blur sm:rounded-[30px] sm:p-6 ${tonePill(
                           report.strength
                         )}`}
                       >
                         <div className="text-[11px] uppercase tracking-[0.22em] text-white/50">
                           Verdict
                         </div>
-                        <div className="mt-3 text-2xl font-semibold text-white">
+                        <div className="mt-3 text-xl font-semibold text-white sm:text-2xl">
                           {report.verdict}
                         </div>
                         <div className="mt-4 text-sm text-white/70">
@@ -446,7 +448,7 @@ export default function NarrivPage() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="mt-5 grid gap-4 sm:mt-6 md:grid-cols-3">
                     <MiniMetric
                       label="Strength"
                       value={report.strength}
@@ -465,7 +467,7 @@ export default function NarrivPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-7 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
+                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-7">
                   <div className="flex flex-wrap gap-2">
                     {tabItems.map(({ key, label, Icon }) => (
                       <button
@@ -484,8 +486,8 @@ export default function NarrivPage() {
                   </div>
 
                   {tab === "overview" && (
-                    <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                      <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
+                    <div className="mt-5 grid gap-4 sm:mt-6 lg:grid-cols-2 lg:gap-5">
+                      <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5">
                         <div className="mb-4 flex items-center gap-2 text-lg font-medium">
                           <TrendingUp className="h-5 w-5 text-emerald-300" />
                           Bull Case
@@ -502,7 +504,7 @@ export default function NarrivPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5">
+                      <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5">
                         <div className="mb-4 flex items-center gap-2 text-lg font-medium">
                           <TrendingDown className="h-5 w-5 text-rose-300" />
                           Bear Case
@@ -522,7 +524,7 @@ export default function NarrivPage() {
                   )}
 
                   {tab === "evidence" && (
-                    <div className="mt-6 space-y-4">
+                    <div className="mt-5 space-y-4 sm:mt-6">
                       {report.evidence.map((item) => {
                         const Icon =
                           item.kind === "News"
@@ -534,9 +536,9 @@ export default function NarrivPage() {
                         return (
                           <div
                             key={item.title}
-                            className="rounded-[26px] border border-white/8 bg-white/[0.03] p-5"
+                            className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[26px] sm:p-5"
                           >
-                            <div className="flex items-start justify-between gap-4">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                               <div className="flex gap-4">
                                 <div className="rounded-2xl border border-white/8 bg-black/20 p-3">
                                   <Icon className="h-5 w-5 text-cyan-300" />
@@ -554,7 +556,7 @@ export default function NarrivPage() {
                                 </div>
                               </div>
                               <div
-                                className={`rounded-full border px-3 py-1 text-sm ${
+                                className={`w-fit rounded-full border px-3 py-1 text-sm ${
                                   item.tone === "Bullish"
                                     ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
                                     : item.tone === "Bearish"
@@ -572,11 +574,11 @@ export default function NarrivPage() {
                   )}
 
                   {tab === "fade" && (
-                    <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                    <div className="mt-5 grid gap-4 sm:mt-6 lg:grid-cols-3">
                       {report.fadeBoard.map((item) => (
                         <div
                           key={item.name}
-                          className="rounded-[28px] border border-white/8 bg-white/[0.03] p-5"
+                          className="rounded-[22px] border border-white/8 bg-white/[0.03] p-4 sm:rounded-[28px] sm:p-5"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div className="inline-flex items-center gap-2 text-sm text-white/55">
@@ -604,9 +606,9 @@ export default function NarrivPage() {
                 </div>
               </section>
 
-              <aside className="space-y-6">
-                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex items-center gap-2 text-2xl font-semibold">
+              <aside className="space-y-4 sm:space-y-6">
+                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-6">
+                  <div className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
                     <Flame className="h-6 w-6 text-cyan-300" />
                     What changed
                   </div>
@@ -633,10 +635,10 @@ export default function NarrivPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[34px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex items-center justify-between">
+                <div className="rounded-[24px] border border-white/8 bg-[#070b11]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:rounded-[34px] sm:p-6">
+                  <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-2xl font-semibold">
+                      <div className="text-xl font-semibold sm:text-2xl">
                         Source Contribution
                       </div>
                       <div className="mt-1 text-sm text-white/45">
@@ -665,11 +667,11 @@ export default function NarrivPage() {
                   </div>
                 </div>
 
-                <div className="rounded-[34px] border border-cyan-400/12 bg-cyan-400/[0.05] p-6 shadow-[0_0_80px_rgba(0,0,0,0.25)]">
+                <div className="rounded-[24px] border border-cyan-400/12 bg-cyan-400/[0.05] p-4 shadow-[0_0_80px_rgba(0,0,0,0.25)] sm:rounded-[34px] sm:p-6">
                   <div className="text-[11px] uppercase tracking-[0.22em] text-cyan-200/70">
                     Narriv
                   </div>
-                  <div className="mt-2 text-2xl font-semibold">
+                  <div className="mt-2 text-xl font-semibold sm:text-2xl">
                     Decision Layer
                   </div>
                   <p className="mt-3 text-white/62">
