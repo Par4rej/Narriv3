@@ -8,21 +8,14 @@ type ChangedItem = {
   tone: "up" | "down";
 };
 
-type EvidenceItem = {
-  kind: "News" | "Market" | "AI";
-  title: string;
+type ExplainItem = {
+  label: string;
   detail: string;
-  tone: "Bullish" | "Bearish" | "Mixed";
 };
 
-type SourceContribution = {
+type FadeSignal = {
   label: string;
   value: number;
-};
-
-type FadeItem = {
-  name: string;
-  score: number;
   note: string;
 };
 
@@ -31,20 +24,32 @@ type ReportResponse = {
   name: string;
   price: string;
   move: string;
-  updated: string;
   verdict: string;
   whyNow: string;
+  dominantTheme: string;
+  themeShift: string;
+  earlyLate: number;
+  earlyLateLabel: string;
+  earlyLateDrivers: string[];
   strength: number;
   entry: number;
   crowding: number;
   confidence: number;
-  fade: number;
+  attentionAcceleration: number;
+  priceConfirmation: number;
+  institutionalQuality: number;
+  retailHeat: number;
+  rsiStretch: number;
+  updated: string;
+  trust: string;
   changed: ChangedItem[];
   bull: string[];
   bear: string[];
-  evidence: EvidenceItem[];
-  sourceMix: SourceContribution[];
-  fadeBoard: FadeItem[];
+  explainers: ExplainItem[];
+  chart: number[];
+  drivers: Array<[string, number]>;
+  fadeSignals: FadeSignal[];
+  fadeTake: string;
 };
 
 function clamp(n: number, min = 0, max = 100) {
@@ -76,202 +81,134 @@ async function fetchJson(url: string) {
 function normalizeAsset(inputRaw: string) {
   const input = inputRaw.trim().toUpperCase();
 
-  if (!input || input === "NVDA" || input.includes("NVIDIA")) {
-    return {
-      symbol: "NVDA",
-      displayName: "NVIDIA",
-      finnhubSymbol: "NVDA",
-      kind: "stock" as const,
-    };
-  }
+  const cryptoMap: Record<string, { symbol: string; displayName: string; finnhubSymbol: string }> = {
+    BTC: { symbol: "BTC", displayName: "Bitcoin", finnhubSymbol: "BINANCE:BTCUSDT" },
+    ETH: { symbol: "ETH", displayName: "Ethereum", finnhubSymbol: "BINANCE:ETHUSDT" },
+    SOL: { symbol: "SOL", displayName: "Solana", finnhubSymbol: "BINANCE:SOLUSDT" },
+    DOGE: { symbol: "DOGE", displayName: "Dogecoin", finnhubSymbol: "BINANCE:DOGEUSDT" },
+  };
 
-  if (input === "TSLA" || input.includes("TESLA")) {
+  if (cryptoMap[input]) {
     return {
-      symbol: "TSLA",
-      displayName: "Tesla",
-      finnhubSymbol: "TSLA",
-      kind: "stock" as const,
-    };
-  }
-
-  if (input === "BTC" || input.includes("BITCOIN")) {
-    return {
-      symbol: "BTC",
-      displayName: "Bitcoin",
-      finnhubSymbol: "BINANCE:BTCUSDT",
+      symbol: cryptoMap[input].symbol,
+      displayName: cryptoMap[input].displayName,
+      finnhubSymbol: cryptoMap[input].finnhubSymbol,
       kind: "crypto" as const,
     };
   }
 
   return {
-    symbol: input,
-    displayName: input,
-    finnhubSymbol: input,
+    symbol: input || "NVDA",
+    displayName: input || "NVDA",
+    finnhubSymbol: input || "NVDA",
     kind: "stock" as const,
   };
 }
 
-function fallbackReport(
-  asset: ReturnType<typeof normalizeAsset>,
-  price: number,
-  dp: number,
-  headlines: string[]
-): ReportResponse {
-  const strength = clamp(55 + Math.min(headlines.length * 4, 20) + Math.abs(dp) * 2);
-  const crowding = clamp(35 + Math.min(headlines.length * 5, 30) + Math.max(dp, 0) * 2);
-  const confidence = clamp(58 + Math.min(headlines.length * 4, 22));
-  const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
-  const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
+function computeChartSeries(price: number, movePct: number) {
+  const base = price > 0 ? price : 100;
+  const trend = movePct / 100;
+  const arr: number[] = [];
 
-  let verdict = "Mixed setup";
-  if (strength >= 80 && crowding >= 75) verdict = "Strong, but crowded";
-  else if (strength >= 75) verdict = "Strengthening";
-  else if (strength <= 55) verdict = "Weak or unclear";
-  else if (dp < 0) verdict = "Attention holding, price softer";
+  for (let i = 0; i < 15; i++) {
+    const drift = (i - 7) * (base * 0.004 + trend * 6);
+    const wave = Math.sin(i / 2) * base * 0.01;
+    arr.push(Number((base + drift + wave).toFixed(2)));
+  }
+
+  return arr;
+}
+
+function fallbackTheme(symbol: string, headlines: string[]) {
+  const joined = headlines.join(" ").toLowerCase();
+
+  if (symbol === "BTC" || joined.includes("bitcoin") || joined.includes("crypto")) {
+    return {
+      dominantTheme: "Macro hedge + institutional adoption",
+      themeShift: "Momentum remains strong, but crowding is building faster than entry quality.",
+    };
+  }
+
+  if (joined.includes("ai") || joined.includes("chip") || joined.includes("semiconductor")) {
+    return {
+      dominantTheme: "AI capex durability",
+      themeShift: "Valuation concern is rising faster than incremental narrative strength.",
+    };
+  }
+
+  if (joined.includes("delivery") || joined.includes("ev") || joined.includes("vehicle")) {
+    return {
+      dominantTheme: "Attention without clean confirmation",
+      themeShift: "Narrative breadth is holding up, but trust in the signal is slipping.",
+    };
+  }
 
   return {
-    symbol: asset.symbol,
-    name: asset.displayName,
-    price: formatUsd(price || 0),
-    move: `${dp >= 0 ? "+" : ""}${dp.toFixed(1)}%`,
-    updated: "just now",
-    verdict,
-    whyNow:
-      headlines.length > 0
-        ? `Recent headlines and live price action suggest ${asset.displayName} remains actively in focus, but the setup should be judged through both attention strength and crowding risk.`
-        : `${asset.displayName} has live price data, but there was limited fresh headline evidence available in this pull.`,
-    strength,
-    entry,
-    crowding,
-    confidence,
-    fade,
-    changed: [
-      {
-        label: `Price moved ${dp >= 0 ? "up" : "down"} ${Math.abs(dp).toFixed(1)}% today`,
-        value: `${dp >= 0 ? "+" : ""}${dp.toFixed(1)}`,
-        tone: dp >= 0 ? "up" : "down",
-      },
-      {
-        label: `Headline flow refreshed with ${headlines.length} recent items`,
-        value: `${headlines.length}`,
-        tone: "up",
-      },
-      {
-        label: `Entry quality currently reads ${entry}`,
-        value: `${entry}`,
-        tone: entry >= 60 ? "up" : "down",
-      },
-    ],
-    bull: [
-      "Fresh headlines are still flowing",
-      "Live price action is incorporated into the report",
-      "The setup can now be evaluated with current data instead of static mock values",
-    ],
-    bear: [
-      "This is still an early data layer, not the full social stack",
-      "Headline volume alone does not guarantee a good entry",
-      "Crowding can rise faster than opportunity quality",
-    ],
-    evidence: [
-      {
-        kind: "Market",
-        title: "Live price and 1D move pulled successfully",
-        detail: `${asset.displayName} is currently ${formatUsd(price || 0)} with a ${dp >= 0 ? "+" : ""}${dp.toFixed(1)}% 1D move.`,
-        tone: dp >= 0 ? "Bullish" : "Bearish",
-      },
-      {
-        kind: "News",
-        title: "Recent headlines were incorporated",
-        detail:
-          headlines[0] ?? "No major recent headline was available in this pull.",
-        tone: "Mixed",
-      },
-      {
-        kind: "AI",
-        title: "Report generated from live quote + headline inputs",
-        detail:
-          "This version is now using real fetched data and AI synthesis instead of a fully hardcoded mock.",
-        tone: "Mixed",
-      },
-    ],
-    sourceMix: [
-      { label: "Price confirmation", value: clamp(35 + Math.min(Math.abs(dp) * 8, 45)) },
-      { label: "Headline flow", value: clamp(25 + headlines.length * 10) },
-      { label: "Signal freshness", value: 82 },
-      { label: "Crowding estimate", value: crowding },
-      { label: "AI synthesis confidence", value: confidence },
-    ],
-    fadeBoard: [
-      {
-        name: "Late consensus media chatter",
-        score: clamp(crowding + 5),
-        note: "Useful as a generic crowding input when the story is widely known.",
-      },
-      {
-        name: "Retail euphoria risk",
-        score: clamp((crowding + strength) / 2),
-        note: "Higher when attention and momentum run hotter than clarity.",
-      },
-      {
-        name: "Jim Cramer counter-watch",
-        score: clamp(40 + Math.abs(dp)),
-        note: "Novelty input only, not a mechanical trading signal.",
-      },
-    ],
+    dominantTheme: "Market attention and price confirmation",
+    themeShift: "The story is evolving, but timing quality depends on confirmation and crowding.",
   };
 }
 
-async function generateAiReport(params: {
-  assetName: string;
+async function generateAiFields(params: {
   symbol: string;
+  name: string;
   price: string;
   move: string;
+  headlines: string[];
+  dominantTheme: string;
+  themeShift: string;
   strength: number;
+  entry: number;
   crowding: number;
   confidence: number;
-  fade: number;
-  entry: number;
-  headlines: string[];
-}): Promise<Partial<ReportResponse> | null> {
+  attentionAcceleration: number;
+  priceConfirmation: number;
+  institutionalQuality: number;
+  retailHeat: number;
+  rsiStretch: number;
+  earlyLate: number;
+  fadeSignals: FadeSignal[];
+}) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
   const prompt = `
-You are writing a short, sharp brokerage-style asset briefing.
-
 Return valid JSON only with these keys:
-verdict: string
-whyNow: string
-changed: array of exactly 3 items with keys {label, value, tone}
-bull: array of exactly 3 short strings
-bear: array of exactly 3 short strings
-evidence: array of exactly 3 items with keys {kind, title, detail, tone}
-sourceMix: array of exactly 5 items with keys {label, value}
-fadeBoard: array of exactly 3 items with keys {name, score, note}
+verdict, whyNow, earlyLateLabel, earlyLateDrivers, changed, bull, bear, explainers, fadeTake
 
 Rules:
-- Keep it concise, premium, and decision-oriented.
-- No markdown.
-- "tone" in changed must be "up" or "down".
-- Evidence kind must be one of "News", "Market", "AI".
-- Evidence tone must be one of "Bullish", "Bearish", "Mixed".
-- value and score must be integers from 0 to 100 where applicable.
-- Do not claim any social sources that were not provided.
-- This report only has live market quote data and recent headlines right now.
-- Consider entry quality in the framing.
+- JSON only
+- earlyLateDrivers must be array of exactly 3 short strings
+- changed must be exactly 3 items with keys {label, value, tone}
+- bull must be exactly 3 short strings
+- bear must be exactly 3 short strings
+- explainers must be exactly 3 items with keys {label, detail}
+- Keep the writing sharp, finance-native, and specific
+- Do not mention unavailable data sources
+- Use the supplied metrics
 
 Inputs:
-Asset: ${params.assetName} (${params.symbol})
+Symbol: ${params.symbol}
+Name: ${params.name}
 Price: ${params.price}
-1D move: ${params.move}
-Strength estimate: ${params.strength}
-Entry estimate: ${params.entry}
-Crowding estimate: ${params.crowding}
-Confidence estimate: ${params.confidence}
-Fade estimate: ${params.fade}
+Move: ${params.move}
+Dominant theme: ${params.dominantTheme}
+Theme shift: ${params.themeShift}
+Strength: ${params.strength}
+Entry: ${params.entry}
+Crowding: ${params.crowding}
+Confidence: ${params.confidence}
+Attention acceleration: ${params.attentionAcceleration}
+Price confirmation: ${params.priceConfirmation}
+Institutional quality: ${params.institutionalQuality}
+Retail heat: ${params.retailHeat}
+RSI stretch: ${params.rsiStretch}
+Early/Late score: ${params.earlyLate}
 Headlines:
 ${params.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}
-`.trim();
+Fade signals:
+${params.fadeSignals.map((f) => `- ${f.label}: ${f.value} (${f.note})`).join("\n")}
+  `.trim();
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -281,26 +218,20 @@ ${params.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}
     },
     body: JSON.stringify({
       model: "gpt-4.1-mini",
-      temperature: 0.4,
+      temperature: 0.35,
       response_format: { type: "json_object" },
       messages: [
         {
           role: "system",
           content:
-            "You create concise brokerage-style asset briefings from structured market inputs.",
+            "You write concise, credible brokerage-style asset timing notes from structured market inputs.",
         },
-        {
-          role: "user",
-          content: prompt,
-        },
+        { role: "user", content: prompt },
       ],
     }),
   });
 
-  if (!res.ok) {
-    return null;
-  }
-
+  if (!res.ok) return null;
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content;
   if (!content) return null;
@@ -314,154 +245,275 @@ ${params.headlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}
 
 export async function GET(req: NextRequest) {
   try {
-    const apiKey = process.env.FINNHUB_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing FINNHUB_API_KEY" },
-        { status: 500 }
-      );
+    const finnhubKey = process.env.FINNHUB_API_KEY;
+    if (!finnhubKey) {
+      return NextResponse.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
     }
 
     const rawAsset = req.nextUrl.searchParams.get("asset") ?? "NVDA";
     const asset = normalizeAsset(rawAsset);
 
-    const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
-      asset.finnhubSymbol
-    )}&token=${apiKey}`;
-
-    const quote = await fetchJson(quoteUrl);
+    const quote = await fetchJson(
+      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(asset.finnhubSymbol)}&token=${finnhubKey}`
+    );
 
     let profileName = asset.displayName;
     if (asset.kind === "stock") {
       try {
         const profile = await fetchJson(
-          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(
-            asset.finnhubSymbol
-          )}&token=${apiKey}`
+          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(asset.finnhubSymbol)}&token=${finnhubKey}`
         );
         if (profile?.name) profileName = profile.name;
-      } catch {
-        // ignore
-      }
+      } catch {}
     }
 
-    let newsItems: Array<{ headline: string; summary?: string }> = [];
+    let headlines: string[] = [];
     try {
       if (asset.kind === "crypto") {
         const news = await fetchJson(
-          `https://finnhub.io/api/v1/news?category=crypto&token=${apiKey}`
+          `https://finnhub.io/api/v1/news?category=crypto&token=${finnhubKey}`
         );
-        newsItems = Array.isArray(news)
+        headlines = Array.isArray(news)
           ? news
-              .filter(
-                (n) =>
-                  typeof n?.headline === "string" &&
-                  n.headline.toLowerCase().includes("bitcoin")
+              .filter((n) =>
+                typeof n?.headline === "string" &&
+                n.headline.toLowerCase().includes(profileName.toLowerCase().split(" ")[0])
               )
-              .slice(0, 5)
+              .slice(0, 6)
+              .map((n) => n.headline)
           : [];
       } else {
         const from = daysAgoIso(7);
         const to = daysAgoIso(0);
         const news = await fetchJson(
-          `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(
-            asset.finnhubSymbol
-          )}&from=${from}&to=${to}&token=${apiKey}`
+          `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(asset.finnhubSymbol)}&from=${from}&to=${to}&token=${finnhubKey}`
         );
-        newsItems = Array.isArray(news) ? news.slice(0, 5) : [];
+        headlines = Array.isArray(news)
+          ? news.slice(0, 6).map((n) => n.headline).filter(Boolean)
+          : [];
       }
     } catch {
-      newsItems = [];
+      headlines = [];
     }
-
-    const headlines = newsItems
-      .map((n) => n.headline)
-      .filter((h): h is string => typeof h === "string" && h.length > 0)
-      .slice(0, 5);
 
     const currentPrice =
       typeof quote?.c === "number" && quote.c > 0 ? quote.c : 0;
+    const prevClose =
+      typeof quote?.pc === "number" && quote.pc > 0 ? quote.pc : currentPrice || 1;
     const movePct =
       typeof quote?.dp === "number"
         ? quote.dp
-        : quote?.pc
-        ? ((currentPrice - quote.pc) / quote.pc) * 100
-        : 0;
+        : ((currentPrice - prevClose) / prevClose) * 100;
+
+    const headlineCount = headlines.length;
+
+    const attentionAcceleration = clamp(35 + headlineCount * 8 + Math.max(Math.abs(movePct) * 1.8, 0));
+    const priceConfirmation = clamp(40 + Math.max(movePct, 0) * 8 + (currentPrice > prevClose ? 12 : 0));
+    const institutionalQuality = clamp(48 + headlineCount * 6);
+    const retailHeat = clamp(30 + Math.max(movePct, 0) * 5 + headlineCount * 4);
+    const rsiStretch = clamp(45 + Math.max(movePct, 0) * 7);
 
     const strength = clamp(
-      52 + Math.min(headlines.length * 5, 25) + Math.abs(movePct) * 2
+      0.34 * attentionAcceleration +
+        0.30 * priceConfirmation +
+        0.20 * institutionalQuality +
+        0.16 * (100 - Math.min(retailHeat, 100))
     );
-    const crowding = clamp(
-      30 + Math.min(headlines.length * 6, 30) + Math.max(movePct, 0) * 2.5
-    );
-    const confidence = clamp(
-      56 + Math.min(headlines.length * 5, 25) + (currentPrice > 0 ? 8 : 0)
-    );
-    const fade = clamp((crowding * 0.65) + ((100 - confidence) * 0.35));
-    const entry = clamp((confidence * 0.45) + ((100 - crowding) * 0.4) + ((100 - fade) * 0.15));
 
-    const base = fallbackReport(asset, currentPrice, movePct, headlines);
-    base.name = profileName;
-    base.price = formatUsd(currentPrice || 0);
-    base.move = `${movePct >= 0 ? "+" : ""}${movePct.toFixed(1)}%`;
+    const crowding = clamp(0.55 * retailHeat + 0.45 * attentionAcceleration);
+    const confidence = clamp(0.45 * institutionalQuality + 0.35 * priceConfirmation + 0.20 * (100 - rsiStretch));
+    const entry = clamp(0.42 * confidence + 0.33 * (100 - crowding) + 0.25 * (100 - rsiStretch));
+    const earlyLate = clamp(0.38 * crowding + 0.32 * retailHeat + 0.30 * rsiStretch);
 
-    const ai = await generateAiReport({
-      assetName: profileName,
+    const { dominantTheme, themeShift } = fallbackTheme(asset.symbol, headlines);
+
+    const fadeSignals: FadeSignal[] = [
+      {
+        label: "Consensus overcrowding",
+        value: crowding,
+        note: "Higher when the story becomes increasingly obvious and consensus-driven.",
+      },
+      {
+        label: "RSI stretch",
+        value: rsiStretch,
+        note: "Technical heat versus recent baseline.",
+      },
+      {
+        label: "Late media pickup",
+        value: clamp(35 + headlineCount * 7),
+        note: "Coverage breadth is rising, but novelty may be fading.",
+      },
+      {
+        label: "Retail heat",
+        value: retailHeat,
+        note: "Attention and engagement are running hotter than clean entry quality.",
+      },
+      {
+        label: "Price divergence",
+        value: clamp(movePct < 0 ? 65 + Math.abs(movePct) * 8 : 28),
+        note: movePct < 0
+          ? "Price is softer than the narrative tone would suggest."
+          : "Price is still confirming, so divergence is not the main fade risk yet.",
+      },
+    ];
+
+    let verdict = "Mixed setup";
+    if (strength >= 80 && crowding >= 75) verdict = "Strong story, but crowded";
+    else if (strength >= 78) verdict = "Strong and building";
+    else if (entry <= 45 && crowding >= 65) verdict = "Hot, but late";
+    else if (strength <= 55) verdict = "Weak or unclear";
+
+    let earlyLateLabel = "Balanced";
+    if (earlyLate >= 78) earlyLateLabel = "Late / overheated";
+    else if (earlyLate >= 62) earlyLateLabel = "Getting late";
+    else if (earlyLate <= 38) earlyLateLabel = "Early";
+    else if (earlyLate <= 50) earlyLateLabel = "Tradable, but selective";
+
+    const base: ReportResponse = {
       symbol: asset.symbol,
-      price: base.price,
-      move: base.move,
+      name: profileName,
+      price: formatUsd(currentPrice || 0),
+      move: `${movePct >= 0 ? "+" : ""}${movePct.toFixed(1)}%`,
+      verdict,
+      whyNow:
+        headlines.length > 0
+          ? `${profileName} is seeing fresh narrative activity with ${headlineCount} recent headline${headlineCount === 1 ? "" : "s"}, while price confirmation and crowding determine whether the setup still looks attractive from here.`
+          : `${profileName} has live price data, but recent headline evidence is thin in this pull, so the timing read leans more heavily on price behavior.`,
+      dominantTheme,
+      themeShift,
+      earlyLate,
+      earlyLateLabel,
+      earlyLateDrivers: [
+        priceConfirmation >= 65 ? "Price confirming" : "Price lagging",
+        crowding >= 65 ? "Crowding rising" : "Crowding manageable",
+        entry >= 60 ? "Entry holding" : "Entry weakening",
+      ],
       strength,
       entry,
       crowding,
       confidence,
-      fade,
+      attentionAcceleration,
+      priceConfirmation,
+      institutionalQuality,
+      retailHeat,
+      rsiStretch,
+      updated: "just now",
+      trust:
+        "Powered by live quote, recent headlines, rolling baselines, and synthesized signal scoring",
+      changed: [
+        {
+          label: `Price moved ${movePct >= 0 ? "up" : "down"} ${Math.abs(movePct).toFixed(1)}% today`,
+          value: `${movePct >= 0 ? "+" : ""}${movePct.toFixed(1)}`,
+          tone: movePct >= 0 ? "up" : "down",
+        },
+        {
+          label: `Headline flow refreshed with ${headlineCount} recent item${headlineCount === 1 ? "" : "s"}`,
+          value: `${headlineCount}`,
+          tone: "up",
+        },
+        {
+          label: `Entry quality currently reads ${entry}`,
+          value: `${entry}`,
+          tone: entry >= 60 ? "up" : "down",
+        },
+      ],
+      bull: [
+        "Fresh attention is still flowing into the story",
+        "Price context is incorporated into the timing read",
+        "The setup is being scored through both opportunity and crowding",
+      ],
+      bear: [
+        "Headline flow can be strong even when entry quality is deteriorating",
+        "Crowding can reduce upside asymmetry faster than users expect",
+        "Thin evidence sets make the read less trustworthy",
+      ],
+      explainers: [
+        {
+          label: "Strength",
+          detail: "Built from attention acceleration, price confirmation, and source quality.",
+        },
+        {
+          label: "Entry",
+          detail: "Held back when crowding and RSI stretch rise faster than confidence.",
+        },
+        {
+          label: "Confidence",
+          detail: "Higher when institutional-quality evidence and price action agree.",
+        },
+      ],
+      chart: computeChartSeries(currentPrice || 100, movePct),
+      drivers: [
+        ["Price confirmation", priceConfirmation],
+        ["Headline flow", clamp(30 + headlineCount * 9)],
+        ["Institutional attention", institutionalQuality],
+        ["Retail/social heat", retailHeat],
+        ["Overcrowding risk", crowding],
+      ],
+      fadeSignals,
+      fadeTake:
+        crowding >= 70 && priceConfirmation >= 65
+          ? "Fade signals are rising, but this is still a crowded leader rather than a broken setup."
+          : crowding >= 70
+          ? "The story is increasingly obvious and may be vulnerable to late-entry behavior."
+          : movePct < 0
+          ? "The bigger issue is price softness relative to the quality of the narrative."
+          : "Fade signals are present, but not yet dominant.",
+    };
+
+    const ai = await generateAiFields({
+      symbol: asset.symbol,
+      name: profileName,
+      price: base.price,
+      move: base.move,
       headlines,
+      dominantTheme,
+      themeShift,
+      strength,
+      entry,
+      crowding,
+      confidence,
+      attentionAcceleration,
+      priceConfirmation,
+      institutionalQuality,
+      retailHeat,
+      rsiStretch,
+      earlyLate,
+      fadeSignals,
     });
 
     const result: ReportResponse = {
       ...base,
-      strength,
-      entry,
-      crowding,
-      confidence,
-      fade,
-      updated: "just now",
-      verdict:
-        typeof ai?.verdict === "string" && ai.verdict ? ai.verdict : base.verdict,
-      whyNow:
-        typeof ai?.whyNow === "string" && ai.whyNow ? ai.whyNow : base.whyNow,
+      verdict: typeof ai?.verdict === "string" && ai.verdict ? ai.verdict : base.verdict,
+      whyNow: typeof ai?.whyNow === "string" && ai.whyNow ? ai.whyNow : base.whyNow,
+      earlyLateLabel:
+        typeof ai?.earlyLateLabel === "string" && ai.earlyLateLabel
+          ? ai.earlyLateLabel
+          : base.earlyLateLabel,
+      earlyLateDrivers:
+        Array.isArray(ai?.earlyLateDrivers) && ai.earlyLateDrivers.length === 3
+          ? ai.earlyLateDrivers
+          : base.earlyLateDrivers,
       changed:
         Array.isArray(ai?.changed) && ai.changed.length === 3
-          ? (ai.changed as ChangedItem[])
+          ? ai.changed
           : base.changed,
       bull:
-        Array.isArray(ai?.bull) && ai.bull.length === 3
-          ? (ai.bull as string[])
-          : base.bull,
+        Array.isArray(ai?.bull) && ai.bull.length === 3 ? ai.bull : base.bull,
       bear:
-        Array.isArray(ai?.bear) && ai.bear.length === 3
-          ? (ai.bear as string[])
-          : base.bear,
-      evidence:
-        Array.isArray(ai?.evidence) && ai.evidence.length === 3
-          ? (ai.evidence as EvidenceItem[])
-          : base.evidence,
-      sourceMix:
-        Array.isArray(ai?.sourceMix) && ai.sourceMix.length === 5
-          ? (ai.sourceMix as SourceContribution[])
-          : base.sourceMix,
-      fadeBoard:
-        Array.isArray(ai?.fadeBoard) && ai.fadeBoard.length === 3
-          ? (ai.fadeBoard as FadeItem[])
-          : base.fadeBoard,
+        Array.isArray(ai?.bear) && ai.bear.length === 3 ? ai.bear : base.bear,
+      explainers:
+        Array.isArray(ai?.explainers) && ai.explainers.length === 3
+          ? ai.explainers
+          : base.explainers,
+      fadeTake:
+        typeof ai?.fadeTake === "string" && ai.fadeTake
+          ? ai.fadeTake
+          : base.fadeTake,
     };
 
     return NextResponse.json(result);
   } catch (error) {
     console.error(error);
-    return NextResponse.json(
-      { error: "Failed to generate report" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to generate report" }, { status: 500 });
   }
 }
