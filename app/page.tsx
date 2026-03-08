@@ -650,20 +650,25 @@ export default function NarrivPage() {
                     </button>
                   </div>
                   <div className="mt-5 space-y-4">
-                    {report.sourceMix.map((item) => (
-                      <div key={item.label}>
-                        <div className="mb-2 flex items-center justify-between text-sm text-white/65">
-                          <span>{item.label}</span>
-                          <span>{item.value}%</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-white/8">
-                          <div
-                            className={`h-2 rounded-full ${barTone(item.value)}`}
-                            style={{ width: `${item.value}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
+            {report.sourceMix.map((item) => {
+  const displayValue = Math.max(0, Math.min(100, item.value));
+
+  return (
+    <div key={item.label}>
+      <div className="mb-2 flex items-center justify-between text-sm text-white/65">
+        <span>{item.label}</span>
+        <span>{displayValue}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-white/8">
+        <div
+          className={`h-2 rounded-full ${barTone(displayValue)}`}
+          style={{ width: `${displayValue}%` }}
+        />
+      </div>
+    </div>
+  );
+})}
+
                   </div>
                 </div>
 
