@@ -21,6 +21,7 @@ function normalizeFinnhubType(type?: string) {
   if (raw.includes("fund")) return "Fund";
   if (raw.includes("common")) return "Equity";
   if (raw.includes("adr")) return "Equity";
+  if (raw.includes("reit")) return "REIT";
   return "Equity";
 }
 
@@ -71,7 +72,7 @@ export async function GET(req: NextRequest) {
               !String(item.symbol).includes(".") &&
               !String(item.symbol).includes(":")
           )
-          .slice(0, 20)
+          .slice(0, 40)
           .map((item: any) => ({
             symbol: item.symbol,
             name: item.description,
@@ -79,25 +80,32 @@ export async function GET(req: NextRequest) {
           }))
       : [];
 
+    const lowerQ = q.toLowerCase();
+
     const exactSymbolMatches = stockResults.filter(
-      (item) => item.symbol.toLowerCase() === q.toLowerCase()
+      (item) => item.symbol.toLowerCase() === lowerQ
     );
     const prefixSymbolMatches = stockResults.filter(
       (item) =>
-        item.symbol.toLowerCase().startsWith(q.toLowerCase()) &&
-        item.symbol.toLowerCase() !== q.toLowerCase()
+        item.symbol.toLowerCase().startsWith(lowerQ) &&
+        item.symbol.toLowerCase() !== lowerQ
     );
     const nameMatches = stockResults.filter(
       (item) =>
-        !item.symbol.toLowerCase().startsWith(q.toLowerCase()) &&
-        item.name.toLowerCase().includes(q.toLowerCase())
+        !item.symbol.toLowerCase().startsWith(lowerQ) &&
+        item.name.toLowerCase().includes(lowerQ)
     );
 
     return NextResponse.json({
-      results: [...cryptoMatches, ...exactSymbolMatches, ...prefixSymbolMatches, ...nameMatches].slice(0, 12),
+      results: [
+        ...cryptoMatches,
+        ...exactSymbolMatches,
+        ...prefixSymbolMatches,
+        ...nameMatches,
+      ].slice(0, 12),
     });
   } catch (error) {
-    console.error(error);
+    console.error("search route error:", error);
     return NextResponse.json({ results: [] });
   }
 }
