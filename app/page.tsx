@@ -231,7 +231,7 @@ export default function Page() {
       const socialData = await socialRes.json();
 
       if (!marketRes.ok) {
-        throw new Error(marketData?.error || "Failed to load market data");
+        throw new Error(marketData?.error || "Failed to load market snapshot");
       }
       if (!socialRes.ok) {
         throw new Error(socialData?.error || "Failed to load narrative data");
