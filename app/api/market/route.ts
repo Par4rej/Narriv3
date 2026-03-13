@@ -68,10 +68,14 @@ function normalizeAsset(inputRaw: string) {
   };
 }
 
-async function fetchJson(url: string) {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json();
+async function fetchJsonSafe(url: string) {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 function firstClose(candles: any) {
@@ -92,51 +96,58 @@ export async function GET(req: NextRequest) {
     const rawAsset = req.nextUrl.searchParams.get("asset") ?? "NVDA";
     const asset = normalizeAsset(rawAsset);
 
-    const quote = await fetchJson(
+    const nowUnix = Math.floor(Date.now() / 1000);
+
+    const quote = await fetchJsonSafe(
       `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
         asset.finnhubSymbol
       )}&token=${finnhubKey}`
     );
 
+    if (!quote || typeof quote.c !== "number") {
+      return NextResponse.json(
+        { error: "Failed to load market snapshot" },
+        { status: 500 }
+      );
+    }
+
     let name = asset.displayName;
     let type = asset.type;
 
     if (!asset.finnhubSymbol.includes(":")) {
-      try {
-        const profile = await fetchJson(
-          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(
-            asset.finnhubSymbol
-          )}&token=${finnhubKey}`
-        );
-        if (profile?.name) name = profile.name;
-      } catch {}
+      const profile = await fetchJsonSafe(
+        `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(
+          asset.finnhubSymbol
+        )}&token=${finnhubKey}`
+      );
+
+      if (profile?.name) name = profile.name;
     }
 
-    const nowUnix = Math.floor(Date.now() / 1000);
     const [weekCandles, monthCandles, ytdCandles] = await Promise.all([
-      fetchJson(
+      fetchJsonSafe(
         `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(
           asset.finnhubSymbol
         )}&resolution=D&from=${unixDaysAgo(8)}&to=${nowUnix}&token=${finnhubKey}`
       ),
-      fetchJson(
+      fetchJsonSafe(
         `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(
           asset.finnhubSymbol
         )}&resolution=D&from=${unixDaysAgo(32)}&to=${nowUnix}&token=${finnhubKey}`
       ),
-      fetchJson(
+      fetchJsonSafe(
         `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(
           asset.finnhubSymbol
         )}&resolution=D&from=${startOfYearUnix()}&to=${nowUnix}&token=${finnhubKey}`
       ),
     ]);
 
-    const currentPrice =
-      typeof quote?.c === "number" && quote.c > 0 ? quote.c : 0;
+    const currentPrice = typeof quote.c === "number" ? quote.c : 0;
     const prevClose =
-      typeof quote?.pc === "number" && quote.pc > 0 ? quote.pc : currentPrice;
+      typeof quote.pc === "number" && quote.pc > 0 ? quote.pc : currentPrice;
+
     const dp =
-      typeof quote?.dp === "number"
+      typeof quote.dp === "number"
         ? quote.dp
         : prevClose
         ? ((currentPrice - prevClose) / prevClose) * 100
@@ -153,7 +164,7 @@ export async function GET(req: NextRequest) {
       changeYTD: pct(firstClose(ytdCandles) || currentPrice, currentPrice),
     });
   } catch (error) {
-    console.error(error);
+    console.error("market route error:", error);
     return NextResponse.json(
       { error: "Failed to load market snapshot" },
       { status: 500 }
