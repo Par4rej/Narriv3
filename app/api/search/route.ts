@@ -9,38 +9,42 @@ type SearchResult = {
 };
 
 const cryptoAliases: SearchResult[] = [
-  { symbol: "BTC", name: "Bitcoin", type: "crypto" },
-  { symbol: "ETH", name: "Ethereum", type: "crypto" },
-  { symbol: "SOL", name: "Solana", type: "crypto" },
-  { symbol: "DOGE", name: "Dogecoin", type: "crypto" },
+  { symbol: "BTC", name: "Bitcoin", type: "Crypto" },
+  { symbol: "ETH", name: "Ethereum", type: "Crypto" },
+  { symbol: "SOL", name: "Solana", type: "Crypto" },
+  { symbol: "DOGE", name: "Dogecoin", type: "Crypto" },
 ];
 
 function normalizeFinnhubType(type?: string) {
   const raw = (type || "").toLowerCase();
-  if (raw.includes("etf")) return "etf";
-  if (raw.includes("common")) return "stock";
-  if (raw.includes("adr")) return "stock";
-  if (raw.includes("fund")) return "fund";
-  return "stock";
+  if (raw.includes("etf")) return "ETF";
+  if (raw.includes("fund")) return "Fund";
+  if (raw.includes("common")) return "Equity";
+  if (raw.includes("adr")) return "Equity";
+  return "Equity";
 }
 
 export async function GET(req: NextRequest) {
   try {
     const finnhubKey = process.env.FINNHUB_API_KEY;
     if (!finnhubKey) {
-      return NextResponse.json({ error: "Missing FINNHUB_API_KEY" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Missing FINNHUB_API_KEY" },
+        { status: 500 }
+      );
     }
 
     const q = (req.nextUrl.searchParams.get("q") || "").trim();
+
     if (!q) {
       return NextResponse.json({
         results: [
           ...cryptoAliases,
-          { symbol: "AAPL", name: "Apple Inc", type: "stock" },
-          { symbol: "MSFT", name: "Microsoft Corp", type: "stock" },
-          { symbol: "NVDA", name: "NVIDIA Corp", type: "stock" },
-          { symbol: "TSLA", name: "Tesla Inc", type: "stock" },
-          { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", type: "etf" },
+          { symbol: "NVDA", name: "NVIDIA Corp", type: "Equity" },
+          { symbol: "EQIX", name: "Equinix Inc", type: "REIT" },
+          { symbol: "AAPL", name: "Apple Inc", type: "Equity" },
+          { symbol: "TSLA", name: "Tesla Inc", type: "Equity" },
+          { symbol: "MSTR", name: "MicroStrategy", type: "Equity" },
         ],
       });
     }
@@ -67,7 +71,7 @@ export async function GET(req: NextRequest) {
               !String(item.symbol).includes(".") &&
               !String(item.symbol).includes(":")
           )
-          .slice(0, 12)
+          .slice(0, 20)
           .map((item: any) => ({
             symbol: item.symbol,
             name: item.description,
@@ -75,9 +79,23 @@ export async function GET(req: NextRequest) {
           }))
       : [];
 
-    const merged = [...cryptoMatches, ...stockResults].slice(0, 12);
+    const exactSymbolMatches = stockResults.filter(
+      (item) => item.symbol.toLowerCase() === q.toLowerCase()
+    );
+    const prefixSymbolMatches = stockResults.filter(
+      (item) =>
+        item.symbol.toLowerCase().startsWith(q.toLowerCase()) &&
+        item.symbol.toLowerCase() !== q.toLowerCase()
+    );
+    const nameMatches = stockResults.filter(
+      (item) =>
+        !item.symbol.toLowerCase().startsWith(q.toLowerCase()) &&
+        item.name.toLowerCase().includes(q.toLowerCase())
+    );
 
-    return NextResponse.json({ results: merged });
+    return NextResponse.json({
+      results: [...cryptoMatches, ...exactSymbolMatches, ...prefixSymbolMatches, ...nameMatches].slice(0, 12),
+    });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ results: [] });
