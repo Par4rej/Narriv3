@@ -3,306 +3,248 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
-  Sparkles,
-  ArrowUpRight,
-  ArrowDownRight,
-  Clock3,
-  ShieldAlert,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  ChevronRight,
-  CheckCircle2,
-  LineChart,
   Database,
   BrainCircuit,
-  Globe2,
-  Gauge,
-  Flame,
-  X,
+  Waves,
+  Users,
+  ChevronRight,
 } from "lucide-react";
 
-type Suggestion = {
+type SearchResult = {
   symbol: string;
   name: string;
   type: string;
 };
 
-type ChangedItem = {
-  label: string;
-  value: string;
-  tone: "up" | "down";
-};
-
-type ExplainItem = {
-  label: string;
-  detail: string;
-};
-
-type FadeSignal = {
-  label: string;
-  value: number;
-  note: string;
-};
-
-type ReportResponse = {
+type MarketSnapshot = {
   symbol: string;
   name: string;
+  type: string;
   price: string;
-  move: string;
-  verdict: string;
-  whyNow: string;
-  dominantTheme: string;
-  themeShift: string;
-  earlyLate: number;
-  earlyLateLabel: string;
-  earlyLateDrivers: string[];
-  strength: number;
-  entry: number;
-  crowding: number;
-  confidence: number;
-  attentionAcceleration: number;
-  priceConfirmation: number;
-  institutionalQuality: number;
-  retailHeat: number;
-  rsiStretch: number;
+  change1D: string;
+  change1W: string;
+  change1M: string;
+  changeYTD: string;
+};
+
+type PlatformCard = {
+  platform: string;
+  icon: string;
+  accent: string;
+  soft: string;
+  volume: string;
+  bull: number;
+  bear: number;
+  neutral: number;
+  summary: string;
+  tags: string[];
+};
+
+type FeedItem = {
+  source: string;
+  author: string;
+  meta: string;
+  tone: "Bullish" | "Mixed" | "Bearish";
+  headline: string;
+  body: string;
+  impact: number;
+  time: string;
+};
+
+type VoiceItem = {
+  source: string;
+  name: string;
+  stance: "Bullish" | "Mixed" | "Bearish";
+  reach: string;
+  quote: string;
+};
+
+type SocialScanResponse = {
+  symbol: string;
+  pulseTitle: string;
+  pulseSummary: string;
   updated: string;
-  trust: string;
-  changed: ChangedItem[];
-  bull: string[];
-  bear: string[];
-  explainers: ExplainItem[];
-  chart: number[];
-  drivers: Array<[string, number]>;
-  fadeSignals: FadeSignal[];
-  fadeTake: string;
+  chips: string[];
+  verdict: string;
+  entry: number;
+  cards: PlatformCard[];
+  feed: FeedItem[];
+  voices: VoiceItem[];
+  velocity: string;
+  percentile: string;
+  signals24h: string;
 };
 
-const fallbackReport: ReportResponse = {
+const fallbackMarket: MarketSnapshot = {
   symbol: "NVDA",
-  name: "NVIDIA",
-  price: "$154.20",
-  move: "+1.2%",
-  verdict: "Loading live report",
-  whyNow:
-    "Narriv is fetching live quote, recent headlines, and building a timing read from the latest data.",
-  dominantTheme: "Loading dominant theme",
-  themeShift: "Waiting for live inputs to determine what changed.",
-  earlyLate: 55,
-  earlyLateLabel: "Balanced",
-  earlyLateDrivers: ["Fetching quote", "Fetching headlines", "Scoring timing"],
-  strength: 78,
-  entry: 58,
-  crowding: 72,
-  confidence: 81,
-  attentionAcceleration: 71,
-  priceConfirmation: 83,
-  institutionalQuality: 76,
-  retailHeat: 62,
-  rsiStretch: 69,
-  updated: "just now",
-  trust:
-    "Powered by live quote, recent headlines, rolling baselines, and synthesized signal scoring",
-  changed: [
-    { label: "Fetching quote", value: "+1", tone: "up" },
-    { label: "Refreshing headlines", value: "+1", tone: "up" },
-    { label: "Calculating timing", value: "+1", tone: "up" },
-  ],
-  bull: [
-    "Live report generation is in progress",
-    "Price and headline context will refresh after search",
-    "This page is wired to a real lookup + report flow",
-  ],
-  bear: [
-    "This is still an MVP, not the full social ingestion stack",
-    "Some assets will have thinner recent headline coverage",
-    "The report is only as strong as the latest available data",
-  ],
-  explainers: [
-    {
-      label: "Strength",
-      detail: "Built from price confirmation, headline flow, and signal quality.",
-    },
-    {
-      label: "Entry",
-      detail: "Penalized when crowding or technical stretch gets too elevated.",
-    },
-    {
-      label: "Confidence",
-      detail: "Higher when the dominant theme is coherent and price confirms it.",
-    },
-  ],
-  chart: [92, 95, 97, 99, 102, 106, 111, 118, 124, 132, 139, 145, 148, 151, 154],
-  drivers: [
-    ["Price confirmation", 75],
-    ["Headline flow", 66],
-    ["Institutional attention", 62],
-    ["Retail/social heat", 54],
-    ["Overcrowding risk", 58],
-  ],
-  fadeSignals: [
-    {
-      label: "Consensus overcrowding",
-      value: 58,
-      note: "The setup is being evaluated against crowding and attention concentration.",
-    },
-    {
-      label: "RSI stretch",
-      value: 61,
-      note: "Technical heat is estimated from recent price behavior.",
-    },
-    {
-      label: "Late media pickup",
-      value: 49,
-      note: "Coverage breadth and novelty are part of the fade read.",
-    },
-    {
-      label: "Retail heat",
-      value: 52,
-      note: "This layer will improve as broader social inputs are added.",
-    },
-    {
-      label: "Price divergence",
-      value: 35,
-      note: "Price vs narrative quality is part of the timing framework.",
-    },
-  ],
-  fadeTake:
-    "Fade signals are being assembled from live price and headline context.",
+  name: "Loading asset",
+  type: "Equity",
+  price: "$0.00",
+  change1D: "0.0%",
+  change1W: "0.0%",
+  change1M: "0.0%",
+  changeYTD: "0.0%",
 };
 
-function tonePill(score: number) {
-  if (score >= 80) return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
-  if (score >= 65) return "border-cyan-400/20 bg-cyan-400/10 text-cyan-300";
+const fallbackSocial: SocialScanResponse = {
+  symbol: "NVDA",
+  pulseTitle: "Loading Narrative Pulse",
+  pulseSummary:
+    "Narriv is scanning live public-web results and building the narrative view.",
+  updated: "just now",
+  chips: ["Scanning public web", "Building pulse", "Fetching signals"],
+  verdict: "Loading",
+  entry: 50,
+  cards: [
+    {
+      platform: "Twitter / X",
+      icon: "𝕏",
+      accent: "#1DA1F2",
+      soft: "rgba(29,161,242,0.12)",
+      volume: "loading",
+      bull: 50,
+      bear: 25,
+      neutral: 25,
+      summary: "Loading public-web social scan.",
+      tags: ["loading"],
+    },
+    {
+      platform: "Reddit",
+      icon: "⬡",
+      accent: "#FF5700",
+      soft: "rgba(255,87,0,0.12)",
+      volume: "loading",
+      bull: 50,
+      bear: 25,
+      neutral: 25,
+      summary: "Loading indexed forum scan.",
+      tags: ["loading"],
+    },
+    {
+      platform: "News",
+      icon: "◉",
+      accent: "#5E8AFF",
+      soft: "rgba(94,138,255,0.12)",
+      volume: "loading",
+      bull: 50,
+      bear: 25,
+      neutral: 25,
+      summary: "Loading news scan.",
+      tags: ["loading"],
+    },
+    {
+      platform: "YouTube",
+      icon: "▶",
+      accent: "#FF0033",
+      soft: "rgba(255,0,51,0.12)",
+      volume: "loading",
+      bull: 50,
+      bear: 25,
+      neutral: 25,
+      summary: "Loading creator scan.",
+      tags: ["loading"],
+    },
+    {
+      platform: "TikTok",
+      icon: "♪",
+      accent: "#FE2C55",
+      soft: "rgba(254,44,85,0.12)",
+      volume: "loading",
+      bull: 50,
+      bear: 25,
+      neutral: 25,
+      summary: "Loading short-form scan.",
+      tags: ["loading"],
+    },
+  ],
+  feed: [],
+  voices: [],
+  velocity: "—",
+  percentile: "—",
+  signals24h: "—",
+};
+
+function perfTone(value: string) {
+  return value.startsWith("-")
+    ? "text-rose-300 bg-rose-400/10 border-rose-400/20"
+    : "text-emerald-300 bg-emerald-400/10 border-emerald-400/20";
+}
+
+function toneClasses(tone: "Bullish" | "Mixed" | "Bearish") {
+  if (tone === "Bullish") {
+    return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
+  }
+  if (tone === "Bearish") {
+    return "border-rose-400/20 bg-rose-400/10 text-rose-300";
+  }
   return "border-amber-400/20 bg-amber-400/10 text-amber-300";
 }
 
-function barTone(score: number) {
-  if (score >= 80) return "bg-emerald-400";
-  if (score >= 65) return "bg-cyan-400";
-  return "bg-amber-400";
+function entryLabel(entry: number) {
+  if (entry < 35) return { label: "Early", color: "text-emerald-300" };
+  if (entry < 55) return { label: "Mid", color: "text-cyan-300" };
+  if (entry < 75) return { label: "Late", color: "text-amber-300" };
+  return { label: "Crowded", color: "text-rose-300" };
 }
 
-function MiniMetric({ label, value, sub }: { label: string; value: number; sub: string }) {
-  return (
-    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4 sm:p-5">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">{label}</div>
-      <div className="mt-2 text-2xl font-semibold text-white sm:text-3xl">{value}</div>
-      <div className="mt-1 text-sm text-white/52">{sub}</div>
-    </div>
-  );
-}
-
-function MiniChart({ data, positive = true }: { data: number[]; positive?: boolean }) {
-  const width = 420;
-  const height = 150;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
-  const range = max - min || 1;
-
-  const points = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / range) * (height - 18) - 9;
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const areaPoints = `0,${height} ${points} ${width},${height}`;
-  const lineColor = positive ? "#22d3ee" : "#fb7185";
-  const areaColor = positive ? "rgba(34,211,238,0.14)" : "rgba(251,113,133,0.14)";
-
-  return (
-    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/40 sm:text-[11px]">Price context</div>
-          <div className="mt-1 text-sm text-white/60">1M trend</div>
-        </div>
-        <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm ${positive ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-300" : "border-rose-400/20 bg-rose-400/10 text-rose-300"}`}>
-          <LineChart className="h-4 w-4" />
-          {positive ? "Uptrend intact" : "Trend under pressure"}
-        </div>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full sm:h-40">
-        <polygon points={areaPoints} fill={areaColor} />
-        <polyline fill="none" stroke={lineColor} strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" points={points} />
-      </svg>
-      <div className="mt-3 flex items-center justify-between text-xs text-white/35">
-        <span>1M ago</span>
-        <span>today</span>
-      </div>
-    </div>
-  );
-}
-
-function EarlyLateGauge({ value, label, drivers }: { value: number; label: string; drivers: string[] }) {
-  const display = Math.max(0, Math.min(100, value));
-  return (
-    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Early or late</div>
-          <div className="mt-1 text-sm text-white/55">Composite timing indicator</div>
-        </div>
-        <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-sm text-white/65">{label}</div>
-      </div>
-      <div className="mt-5">
-        <div className="relative h-3 overflow-hidden rounded-full bg-[linear-gradient(90deg,#22c55e_0%,#22d3ee_35%,#f59e0b_70%,#f43f5e_100%)]">
-          <div className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#02060b] shadow-[0_0_0_4px_rgba(255,255,255,0.06)]" style={{ left: `calc(${display}% - 10px)` }} />
-        </div>
-        <div className="mt-3 flex items-center justify-between text-xs text-white/40">
-          <span>Early</span>
-          <span>Balanced</span>
-          <span>Late</span>
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {drivers.map((driver) => (
-          <span key={driver} className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/65">
-            {driver}
-          </span>
-        ))}
-      </div>
-      <div className="mt-4 text-sm text-white/68">
-        Aggregates price action, headline intensity, attention concentration, crowding, and entry quality into a single timing read.
-      </div>
-    </div>
-  );
-}
-
-export default function NarrivLandingV2() {
-  const [query, setQuery] = useState("NVDA");
-  const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
+export default function Page() {
+  const [symbol, setSymbol] = useState("NVDA");
+  const [search, setSearch] = useState("NVDA");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [report, setReport] = useState<ReportResponse>(fallbackReport);
+  const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
+  const [market, setMarket] = useState<MarketSnapshot>(fallbackMarket);
+  const [social, setSocial] = useState<SocialScanResponse>(fallbackSocial);
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState("");
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const normalized = useMemo(() => query.trim().toUpperCase(), [query]);
+  const entryState = useMemo(() => entryLabel(social.entry), [social.entry]);
 
-  async function loadReport(symbol: string) {
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function loadAsset(nextSymbol: string) {
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`/api/report?asset=${encodeURIComponent(symbol)}`, {
-        cache: "no-store",
-      });
-      const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data?.error || "Failed to load report");
+      const [marketRes, socialRes] = await Promise.all([
+        fetch(`/api/market?asset=${encodeURIComponent(nextSymbol)}`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/social-scan?asset=${encodeURIComponent(nextSymbol)}`, {
+          cache: "no-store",
+        }),
+      ]);
+
+      const marketData = await marketRes.json();
+      const socialData = await socialRes.json();
+
+      if (!marketRes.ok) {
+        throw new Error(marketData?.error || "Failed to load market data");
+      }
+      if (!socialRes.ok) {
+        throw new Error(socialData?.error || "Failed to load narrative data");
       }
 
-      setReport(data);
-      setSelectedSymbol(data.symbol);
-      setQuery(data.symbol);
+      setMarket(marketData);
+      setSocial(socialData);
+      setSymbol(nextSymbol);
+      setSearch(nextSymbol);
       setShowSuggestions(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to load live report";
+      const message =
+        err instanceof Error ? err.message : "Failed to load asset";
       setError(message);
     } finally {
       setLoading(false);
@@ -316,7 +258,7 @@ export default function NarrivLandingV2() {
         cache: "no-store",
       });
       const data = await res.json();
-      if (!res.ok) throw new Error("Search failed");
+      if (!res.ok) throw new Error(data?.error || "Search failed");
       setSuggestions(Array.isArray(data?.results) ? data.results : []);
     } catch {
       setSuggestions([]);
@@ -326,349 +268,585 @@ export default function NarrivLandingV2() {
   }
 
   useEffect(() => {
-    loadReport("NVDA");
+    loadAsset("NVDA");
   }, []);
 
   useEffect(() => {
     if (!showSuggestions) return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
     debounceRef.current = setTimeout(() => {
-      fetchSuggestions(query.trim());
-    }, 200);
+      fetchSuggestions(search.trim());
+    }, 180);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, showSuggestions]);
+  }, [search, showSuggestions]);
 
-  function selectSuggestion(item: Suggestion) {
-    setSelectedSymbol(item.symbol);
-    setQuery(item.symbol);
-    setShowSuggestions(false);
-    loadReport(item.symbol);
+  function pickAsset(nextSymbol: string) {
+    loadAsset(nextSymbol);
   }
-
-  function runSearch() {
-    if (!normalized) return;
-    if (suggestions.length > 0) {
-      selectSuggestion(suggestions[0]);
-      return;
-    }
-    loadReport(normalized);
-  }
-
-  const watchlist = [
-    { symbol: "NVDA", score: 78, move: "+1.2%" },
-    { symbol: "BTC", score: 84, move: "+3.8%" },
-    { symbol: "TSLA", score: 65, move: "-1.7%" },
-    { symbol: "AAPL", score: 74, move: "-0.8%" },
-    { symbol: "MSFT", score: 76, move: "+0.9%" },
-  ];
 
   return (
-    <main className="min-h-screen bg-[#02060b] text-white">
-      <div className="mx-auto max-w-[1480px] px-4 py-4 sm:px-6 sm:py-6">
-        <div className="grid gap-6 xl:grid-cols-[250px_minmax(0,1fr)]">
-          <aside className="rounded-[28px] border border-white/8 bg-[#080c13]/92 p-4 shadow-[0_0_80px_rgba(0,0,0,0.35)] backdrop-blur sm:p-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-white/35">Narriv</div>
-                <div className="mt-1 text-xl font-semibold sm:text-2xl">Watchlist</div>
-                <div className="mt-1 text-sm text-white/45">Signals and alerts</div>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(94,231,255,0.14),transparent_20%),linear-gradient(180deg,#05060a,#0a0d15)] px-3 py-4 text-white sm:px-6 sm:py-6">
+      <div className="mx-auto max-w-[1480px] space-y-4 sm:space-y-6">
+        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+          <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr] xl:items-center">
+            <div>
+              <div className="inline-flex items-center rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
+                AI-powered narrative intelligence
               </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-3">
-                <Sparkles className="h-5 w-5 text-cyan-300" />
+              <h1 className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.02] tracking-tight sm:mt-5 sm:text-7xl">
+                Should you bet on{" "}
+                <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent">
+                  this story?
+                </span>
+              </h1>
+              <p className="mt-5 max-w-3xl text-lg leading-8 text-white/72">
+                Narriv scans the public web across social, creators, and news,
+                then turns the noise into a single narrative pulse you can
+                actually act on.
+              </p>
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/60">
+                <span className="inline-flex items-center gap-2">
+                  <Database className="h-4 w-4 text-cyan-300" />
+                  Finnhub market context
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <BrainCircuit className="h-4 w-4 text-cyan-300" />
+                  OpenAI web synthesis
+                </span>
+                <span className="inline-flex items-center gap-2">
+                  <Waves className="h-4 w-4 text-cyan-300" />
+                  Narrative pulse
+                </span>
               </div>
             </div>
 
-            <div className="mt-5 rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,28,0.95),rgba(6,10,16,0.95))] p-4">
-              <div className="flex items-center gap-2 text-sm text-white/55">
-                <Activity className="h-4 w-4 text-emerald-300" />
-                Tracked Assets
-              </div>
-              <div className="mt-4 space-y-2">
-                {watchlist.map((item) => (
-                  <button
-                    key={item.symbol}
-                    onClick={() => loadReport(item.symbol)}
-                    className="flex w-full items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-3 text-left transition hover:bg-white/[0.05]"
-                  >
-                    <div>
-                      <div className="font-medium">{item.symbol}</div>
-                      <div className="text-xs text-white/45">Strength {item.score}</div>
+            <div className="space-y-3 sm:space-y-4">
+              <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-3 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur sm:rounded-[30px] sm:p-4">
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div ref={wrapperRef} className="relative flex-1">
+                    <div className="flex items-center gap-3 rounded-[18px] bg-[#0a0d15] px-3 sm:rounded-[22px] sm:px-4">
+                      <Search className="h-5 w-5 text-white/40" />
+                      <input
+                        value={search}
+                        onChange={(e) => {
+                          setSearch(e.target.value.toUpperCase());
+                          setShowSuggestions(true);
+                        }}
+                        onFocus={() => setShowSuggestions(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            loadAsset(search.toUpperCase());
+                          }
+                        }}
+                        className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-white/30 sm:h-14 sm:text-lg"
+                        placeholder="Type a ticker or company"
+                      />
                     </div>
-                    <div className={`text-sm ${item.move.startsWith("+") ? "text-emerald-300" : "text-rose-300"}`}>{item.move}</div>
+
+                    {showSuggestions ? (
+                      <div className="absolute left-0 right-0 top-[calc(100%+10px)] z-30 rounded-[24px] border border-white/10 bg-[#0b0f18]/96 p-2 shadow-[0_30px_80px_rgba(0,0,0,0.45)] backdrop-blur">
+                        {searchLoading ? (
+                          <div className="px-4 py-3 text-sm text-white/52">
+                            Searching assets...
+                          </div>
+                        ) : suggestions.length > 0 ? (
+                          suggestions.map((item) => (
+                            <button
+                              key={item.symbol}
+                              onClick={() => pickAsset(item.symbol)}
+                              className="flex w-full items-center justify-between rounded-[18px] px-4 py-3 text-left transition hover:bg-white/[0.05]"
+                            >
+                              <div>
+                                <div className="font-mono text-sm font-semibold text-white">
+                                  {item.symbol}
+                                </div>
+                                <div className="text-sm text-white/52">
+                                  {item.name}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-white/52">
+                                  {item.type}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-white/35" />
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-white/52">
+                            No suggestions yet. Press enter to try the symbol
+                            directly.
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <button
+                    onClick={() => loadAsset(search.toUpperCase())}
+                    className="h-12 rounded-[18px] bg-[linear-gradient(135deg,#22ffaa,#00d4aa)] px-5 text-sm font-medium text-[#05060a] transition hover:scale-[1.01] hover:brightness-105 sm:h-14 sm:rounded-[22px] sm:px-7 sm:text-lg"
+                  >
+                    {loading ? "Loading..." : "Analyze narrative"}
                   </button>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {["NVDA", "EQIX", "TSLA", "AAPL", "MSTR", "BTC"].map((pick) => (
+                    <button
+                      key={pick}
+                      onClick={() => pickAsset(pick)}
+                      className={`rounded-full border px-3 py-1.5 font-mono text-xs transition ${
+                        symbol === pick
+                          ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                          : "border-white/10 bg-white/[0.04] text-white/68 hover:bg-white/[0.08]"
+                      }`}
+                    >
+                      {pick}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[30px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.88),rgba(15,19,32,0.98))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+                      Market snapshot
+                    </div>
+                    <div className="mt-2 flex items-end gap-3">
+                      <div className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                        {market.price}
+                      </div>
+                      <div
+                        className={`rounded-full border px-3 py-1.5 text-sm ${perfTone(
+                          market.change1D
+                        )}`}
+                      >
+                        {market.change1D} today
+                      </div>
+                    </div>
+                    <div className="mt-2 text-sm text-white/56">
+                      {market.name} · {market.symbol} · {market.type}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 sm:min-w-[320px] sm:grid-cols-4 sm:gap-3">
+                    {[
+                      { label: "1D", value: market.change1D },
+                      { label: "1W", value: market.change1W },
+                      { label: "1M", value: market.change1M },
+                      { label: "YTD", value: market.changeYTD },
+                    ].map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-[18px] border border-white/10 bg-white/[0.045] p-2.5 text-center sm:rounded-[20px] sm:p-3"
+                      >
+                        <div className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          {item.label}
+                        </div>
+                        <div
+                          className={`mt-2 text-sm font-semibold ${
+                            item.value.startsWith("-")
+                              ? "text-rose-300"
+                              : "text-emerald-300"
+                          }`}
+                        >
+                          {item.value}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {error ? (
+          <div className="rounded-[26px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-rose-200">
+            {error}
+          </div>
+        ) : null}
+
+        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="mt-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+                <div className="h-4 w-4 rounded-full border-2 border-emerald-300" />
+              </div>
+              <div>
+                <div className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                  {social.pulseTitle}
+                </div>
+                <div className="mt-1 text-sm text-white/56">
+                  Synthesized from live public-web surfaces
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-white/56">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              Updated {social.updated}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-6">
+            <p className="text-base leading-7 text-white/90 sm:text-xl sm:leading-9">
+              {social.pulseSummary}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {social.chips.map((chip) => (
+                <span
+                  key={chip}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/72"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 sm:gap-4">
+          {social.cards.map((card) => {
+            const tone =
+              card.bull > card.bear
+                ? "Bullish"
+                : card.bear > card.bull
+                ? "Bearish"
+                : "Mixed";
+
+            return (
+              <div
+                key={card.platform}
+                className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.94),rgba(15,19,32,0.96))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:p-5"
+              >
+                <div
+                  className="-mx-5 -mt-5 mb-4 h-[2px] rounded-t-[30px]"
+                  style={{ backgroundColor: card.accent }}
+                />
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-xs font-bold"
+                        style={{
+                          backgroundColor: card.soft,
+                          color: card.accent,
+                        }}
+                      >
+                        {card.icon}
+                      </span>
+                      <div className="text-base font-medium text-white sm:text-lg">
+                        {card.platform}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-xs text-white/46">
+                      {card.volume}
+                    </div>
+                  </div>
+                  <div
+                    className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
+                      tone as "Bullish" | "Mixed" | "Bearish"
+                    )}`}
+                  >
+                    {tone}
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2 text-xs text-white/48">
+                  {[
+                    { label: "BULL", value: card.bull, cls: "bg-emerald-400" },
+                    { label: "BEAR", value: card.bear, cls: "bg-rose-400" },
+                    { label: "NEUT", value: card.neutral, cls: "bg-slate-400" },
+                  ].map((row) => (
+                    <div key={row.label}>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span>{row.label}</span>
+                        <span>{row.value}%</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                        <div
+                          className={`h-2 rounded-full ${row.cls}`}
+                          style={{ width: `${row.value}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-3 text-sm leading-6 text-white/80 sm:mt-4 sm:leading-7">
+                  {card.summary}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {card.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-white/52"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </section>
+
+        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">
+                Verdict
+              </div>
+              <div className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                {social.verdict}
+              </div>
+            </div>
+            <div
+              className={`rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm ${entryState.color}`}
+            >
+              Entry timing: {entryState.label} — {social.entry}%
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.16em] text-white/40">
+              <span>Entry timing</span>
+              <span>{entryState.label}</span>
+            </div>
+            <div className="relative h-8">
+              <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-white/8">
+                <div className="flex h-full w-full">
+                  <div className="h-full w-[35%] bg-emerald-400" />
+                  <div className="h-full w-[20%] bg-cyan-400" />
+                  <div className="h-full w-[25%] bg-amber-400" />
+                  <div className="h-full w-[20%] bg-rose-400" />
+                </div>
+              </div>
+              <div
+                className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#05060a]"
+                style={{ left: `calc(${social.entry}% - 10px)` }}
+              />
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-white/40">
+              <span>Early</span>
+              <span>Mid</span>
+              <span>Late</span>
+              <span>Crowded</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.12fr_0.88fr]">
+          <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <div className="text-2xl font-semibold tracking-tight">
+                  Live Signal Feed
+                </div>
+                <div className="mt-1 text-sm text-white/56">
+                  Representative items shaping the visible narrative around{" "}
+                  {social.symbol}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs text-white/52">
+                {["All", "X", "Reddit", "News", "YT"].map((f) => (
+                  <span
+                    key={f}
+                    className={`rounded-full border px-3 py-1 ${
+                      f === "All"
+                        ? "border-white/10 bg-white/[0.06] text-white"
+                        : "border-white/10 bg-white/[0.04]"
+                    }`}
+                  >
+                    {f}
+                  </span>
                 ))}
               </div>
             </div>
 
-            <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.03] p-4">
-              <div className="flex items-center gap-2 text-sm text-white/55">
-                <CheckCircle2 className="h-4 w-4 text-cyan-300" />
-                Why people trust it
-              </div>
-              <div className="mt-4 space-y-3 text-sm text-white/72">
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Live market quote context</div>
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Recent headline ingestion</div>
-                <div className="rounded-2xl border border-white/6 bg-black/20 p-3">Signal synthesis and timing read</div>
-              </div>
-            </div>
-          </aside>
-
-          <section className="space-y-6">
-            <div className="rounded-[32px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(0,220,255,0.14),transparent_30%),linear-gradient(180deg,rgba(5,9,16,0.95),rgba(2,5,10,0.98))] p-5 shadow-[0_0_100px_rgba(0,0,0,0.45)] sm:p-7">
-              <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
-                <div className="max-w-3xl">
-                  <div className="inline-flex items-center rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
-                    Turn market noise into a decision
-                  </div>
-                  <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-6xl">
-                    Know if the story behind an asset is <span className="text-cyan-300">worth betting on.</span>
-                  </h1>
-                  <p className="mt-5 max-w-2xl text-base leading-7 text-white/62 sm:text-lg sm:leading-8">
-                    Narriv blends price action, headlines, attention, and crowding into a simple read: strong, weak, early, or late.
-                  </p>
-                  <div className="mt-5 flex flex-wrap items-center gap-3 text-sm text-white/48">
-                    <span className="inline-flex items-center gap-2"><Database className="h-4 w-4 text-cyan-300" /> Live market data</span>
-                    <span className="inline-flex items-center gap-2"><Globe2 className="h-4 w-4 text-cyan-300" /> Headline ingestion</span>
-                    <span className="inline-flex items-center gap-2"><BrainCircuit className="h-4 w-4 text-cyan-300" /> Signal synthesis</span>
-                  </div>
-                </div>
-
-                <div className="rounded-[26px] border border-white/8 bg-white/[0.04] p-3 backdrop-blur">
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <div className="relative flex-1">
-                      <div className="flex items-center gap-3 rounded-[18px] bg-black/30 px-4 sm:rounded-[20px]">
-                        <Search className="h-5 w-5 text-white/40" />
-                        <input
-                          value={query}
-                          onChange={(e) => {
-                            setQuery(e.target.value);
-                            setShowSuggestions(true);
-                          }}
-                          onFocus={() => setShowSuggestions(true)}
-                          onKeyDown={(e) => e.key === "Enter" && runSearch()}
-                          className="h-14 w-full bg-transparent text-base outline-none placeholder:text-white/30 sm:text-lg"
-                          placeholder="Search ticker or asset name"
-                        />
-                        {query ? (
-                          <button
-                            onClick={() => {
-                              setQuery("");
-                              setShowSuggestions(true);
-                              setSuggestions([]);
-                            }}
-                            className="text-white/35 transition hover:text-white/60"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        ) : null}
-                      </div>
-
-                      {showSuggestions ? (
-                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-20 rounded-[22px] border border-white/8 bg-[#0a0f17]/98 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur">
-                          {searchLoading ? (
-                            <div className="px-4 py-3 text-sm text-white/45">Searching assets...</div>
-                          ) : suggestions.length > 0 ? (
-                            suggestions.slice(0, 8).map((item) => (
-                              <button
-                                key={`${item.symbol}-${item.name}`}
-                                onClick={() => selectSuggestion(item)}
-                                className={`flex w-full items-center justify-between rounded-2xl px-4 py-3 text-left transition hover:bg-white/[0.05] ${selectedSymbol === item.symbol ? "bg-white/[0.04]" : ""}`}
-                              >
-                                <div>
-                                  <div className="font-medium text-white">{item.symbol}</div>
-                                  <div className="text-sm text-white/45">{item.name}</div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span className="rounded-full border border-white/8 bg-black/20 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-white/45">
-                                    {item.type}
-                                  </span>
-                                  <ChevronRight className="h-4 w-4 text-white/25" />
-                                </div>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-4 py-3 text-sm text-white/45">No matches yet. Press enter to try the ticker directly.</div>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <button onClick={runSearch} className="h-14 rounded-[18px] bg-[#20d7ff] px-6 text-base font-medium text-black transition hover:brightness-105 sm:rounded-[20px] sm:text-lg">
-                      {loading ? "Loading..." : "Generate Report"}
-                    </button>
-                  </div>
-                  <p className="mt-3 text-sm text-white/45">Search stocks, ETFs, or major crypto and get a live timing read.</p>
-                </div>
-              </div>
-            </div>
-
-            {error ? (
-              <div className="rounded-[24px] border border-rose-400/20 bg-rose-400/10 px-5 py-4 text-rose-200">{error}</div>
-            ) : null}
-
-            <div className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
-              <section className="space-y-6">
-                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-5 shadow-[0_0_80px_rgba(0,0,0,0.35)] sm:p-7">
-                  <div className="flex flex-col gap-6 border-b border-white/8 pb-6 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="max-w-3xl">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-xs text-cyan-200">
-                        <Gauge className="h-3.5 w-3.5" />
-                        {report.symbol} live signal read
-                      </div>
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
-                        <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">{report.name}</h2>
-                        <div className={`rounded-full border px-3 py-1 text-sm ${tonePill(report.strength)}`}>{report.verdict}</div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-white/45">
-                        <span className="inline-flex items-center gap-2"><Clock3 className="h-4 w-4" /> {report.updated}</span>
-                        <span className={`inline-flex items-center gap-1 ${report.move.startsWith("+") ? "text-emerald-300" : "text-rose-300"}`}>
-                          {report.move.startsWith("+") ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                          {report.price} {report.move}
+            <div className="mt-5 space-y-4">
+              {social.feed.map((item) => (
+                <div
+                  key={`${item.source}-${item.author}-${item.headline}`}
+                  className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-cyan-200">
+                          {item.source}
+                        </span>
+                        <span className="text-sm font-medium text-white">
+                          {item.author}
+                        </span>
+                        <span className="text-xs text-white/46">
+                          {item.meta}
                         </span>
                       </div>
-                      <p className="mt-5 text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">{report.whyNow}</p>
-                      <p className="mt-4 text-sm text-white/45">{report.trust}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <MiniMetric label="Strength" value={report.strength} sub="how powerful the story is" />
-                    <MiniMetric label="Entry" value={report.entry} sub="how attractive it looks now" />
-                    <MiniMetric label="Crowding" value={report.crowding} sub="how consensus it feels" />
-                    <MiniMetric label="Confidence" value={report.confidence} sub="how trustworthy the signal is" />
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <MiniMetric label="Attention" value={report.attentionAcceleration} sub="vs 7d baseline" />
-                    <MiniMetric label="Price confirm" value={report.priceConfirmation} sub="narrative validation" />
-                    <MiniMetric label="Institutional" value={report.institutionalQuality} sub="source quality" />
-                    <MiniMetric label="RSI stretch" value={report.rsiStretch} sub="technical heat" />
-                  </div>
-
-                  <div className="mt-6 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                    <MiniChart data={report.chart} positive={report.move.startsWith("+")} />
-                    <EarlyLateGauge value={report.earlyLate} label={report.earlyLateLabel} drivers={report.earlyLateDrivers} />
-                  </div>
-
-                  <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Dominant theme</div>
-                      <div className="mt-2 text-xl font-semibold text-white">{report.dominantTheme}</div>
-                      <div className="mt-4 text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Theme shift</div>
-                      <div className="mt-2 text-white/68">{report.themeShift}</div>
-                    </div>
-
-                    <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-5">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-white/42 sm:text-[11px]">Why this read</div>
-                      <div className="mt-4 space-y-3">
-                        {report.explainers.map((item) => (
-                          <div key={item.label} className="rounded-2xl border border-white/6 bg-black/20 p-4">
-                            <div className="text-sm font-medium text-white">{item.label}</div>
-                            <div className="mt-1 text-sm text-white/62">{item.detail}</div>
-                          </div>
-                        ))}
+                      <div className="mt-3 text-[15px] font-semibold leading-6 text-white/90 sm:text-base">
+                        {item.headline}
+                      </div>
+                      <div className="mt-1 text-sm leading-7 text-white/78 sm:text-base sm:leading-8">
+                        {item.body}
+                      </div>
+                      <div className="mt-4 flex items-center gap-3 text-xs text-white/52">
+                        <span
+                          className={`rounded-full border px-2.5 py-1 ${toneClasses(
+                            item.tone
+                          )}`}
+                        >
+                          {item.tone}
+                        </span>
+                        <span>impact</span>
+                        <div className="h-2 w-24 overflow-hidden rounded-full bg-white/8">
+                          <div
+                            className="h-2 rounded-full bg-cyan-400"
+                            style={{ width: `${item.impact}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
+                    <div className="text-xs text-white/40">{item.time}</div>
                   </div>
                 </div>
-              </section>
-
-              <aside className="space-y-6">
-                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex items-center gap-2 text-2xl font-semibold">
-                    <Flame className="h-6 w-6 text-cyan-300" />
-                    What changed
-                  </div>
-                  <div className="mt-5 space-y-3">
-                    {report.changed.map((item) => (
-                      <div key={item.label} className="flex items-center justify-between rounded-2xl border border-white/6 bg-white/[0.03] px-4 py-4">
-                        <div className="max-w-[75%] text-white/75">{item.label}</div>
-                        <div className={`rounded-full px-3 py-1 text-sm ${item.tone === "down" ? "bg-rose-400/10 text-rose-300" : "bg-emerald-400/10 text-emerald-300"}`}>{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-2xl font-semibold">Signal Blend</div>
-                      <div className="mt-1 text-sm text-white/45">What is driving this setup</div>
-                    </div>
-                    <div className="rounded-full border border-white/8 bg-black/20 px-3 py-1 text-xs text-white/45">
-                      breakdown view
-                    </div>
-                  </div>
-                  <div className="mt-5 space-y-4">
-                    {report.drivers.map(([label, value]) => {
-                      const displayValue = Math.max(0, Math.min(100, Number(value)));
-                      return (
-                        <div key={String(label)}>
-                          <div className="mb-2 flex items-center justify-between text-sm text-white/65">
-                            <span>{label}</span>
-                            <span>{displayValue}%</span>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                            <div className={`h-2 rounded-full ${barTone(displayValue)}`} style={{ width: `${displayValue}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="flex items-center gap-2 text-2xl font-semibold">
-                    <ShieldAlert className="h-6 w-6 text-amber-300" />
-                    Fade Signals
-                  </div>
-                  <div className="mt-2 text-sm text-white/45">Signals that suggest the story may be too obvious, too stretched, or too crowded.</div>
-                  <div className="mt-5 space-y-4">
-                    {report.fadeSignals.map((item) => {
-                      const displayValue = Math.max(0, Math.min(100, Number(item.value)));
-                      return (
-                        <div key={item.label} className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                          <div className="mb-2 flex items-center justify-between gap-3">
-                            <div className="text-sm font-medium text-white">{item.label}</div>
-                            <div className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-sm text-amber-300">{displayValue}</div>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                            <div className="h-2 rounded-full bg-amber-300" style={{ width: `${displayValue}%` }} />
-                          </div>
-                          <div className="mt-3 text-sm text-white/62">{item.note}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-5 rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-amber-200/70 sm:text-[11px]">Narriv take</div>
-                    <div className="mt-2 text-sm text-white/75">{report.fadeTake}</div>
-                  </div>
-                </div>
-
-                <div className="rounded-[32px] border border-white/8 bg-[#070b11]/92 p-6 shadow-[0_0_80px_rgba(0,0,0,0.35)]">
-                  <div className="mb-4 flex items-center gap-2 text-lg font-medium"><TrendingUp className="h-5 w-5 text-emerald-300" /> Bull case</div>
-                  <div className="space-y-3">
-                    {report.bull.map((item) => (
-                      <div key={item} className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75">{item}</div>
-                    ))}
-                  </div>
-                  <div className="mb-4 mt-6 flex items-center gap-2 text-lg font-medium"><TrendingDown className="h-5 w-5 text-rose-300" /> Bear case</div>
-                  <div className="space-y-3">
-                    {report.bear.map((item) => (
-                      <div key={item} className="rounded-2xl border border-white/6 bg-black/20 p-4 text-white/75">{item}</div>
-                    ))}
-                  </div>
-                </div>
-              </aside>
+              ))}
             </div>
-          </section>
-        </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+              <div className="text-2xl font-semibold tracking-tight">
+                Attention Velocity
+              </div>
+              <div className="mt-1 text-sm text-white/56">
+                How quickly this story is broadening right now
+              </div>
+              <div className="mt-5 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-5">
+                <div className="flex h-32 items-end gap-2">
+                  {[28, 32, 31, 36, 40, 38, 46, 44, 52, 57, 55, 63].map(
+                    (h, idx) => (
+                      <div
+                        key={idx}
+                        className="flex-1 rounded-t-md bg-emerald-400/80"
+                        style={{ height: `${h}%` }}
+                      />
+                    )
+                  )}
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3">
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                  <div className="text-2xl font-semibold text-emerald-300">
+                    {social.velocity}
+                  </div>
+                  <div className="mt-1 text-xs text-white/46">vs 7d avg</div>
+                </div>
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                  <div className="text-2xl font-semibold text-amber-300">
+                    {social.percentile}
+                  </div>
+                  <div className="mt-1 text-xs text-white/46">percentile</div>
+                </div>
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                  <div className="text-2xl font-semibold text-white">
+                    {social.signals24h}
+                  </div>
+                  <div className="mt-1 text-xs text-white/46">
+                    signals / 24h
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+              <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+                <Users className="h-6 w-6 text-cyan-300" />
+                Key Opinion Leaders
+              </div>
+              <div className="mt-1 text-sm text-white/56">
+                Who appears to be shaping the visible framing around{" "}
+                {social.symbol}
+              </div>
+              <div className="mt-5 space-y-3">
+                {social.voices.map((voice) => (
+                  <div
+                    key={`${voice.source}-${voice.name}`}
+                    className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs uppercase tracking-[0.16em] text-white/40">
+                          {voice.source}
+                        </div>
+                        <div className="mt-2 text-sm font-medium text-white">
+                          {voice.name}
+                        </div>
+                        <div className="mt-1 text-xs text-white/46">
+                          {voice.reach}
+                        </div>
+                      </div>
+                      <div
+                        className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
+                          voice.stance
+                        )}`}
+                      >
+                        {voice.stance}
+                      </div>
+                    </div>
+                    <div className="mt-4 text-sm leading-7 text-white/82">
+                      “{voice.quote}”
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
+            How Narriv works
+          </div>
+          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+            Open about the logic, careful about the claims.
+          </h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+              <div className="text-sm font-semibold text-white">
+                What is fully real
+              </div>
+              <div className="mt-3 text-sm leading-7 text-white/74">
+                Search suggestions, price, and return windows come from Finnhub.
+                Public-web content is retrieved live through OpenAI web search.
+              </div>
+            </div>
+            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+              <div className="text-sm font-semibold text-white">
+                What is AI-inferred
+              </div>
+              <div className="mt-3 text-sm leading-7 text-white/74">
+                Platform sentiment splits, verdicts, velocity, crowding, and
+                entry timing are Narriv signals built from live evidence, not
+                official platform telemetry.
+              </div>
+            </div>
+            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+              <div className="text-sm font-semibold text-white">
+                How to use it
+              </div>
+              <div className="mt-3 text-sm leading-7 text-white/74">
+                Use Narriv to understand what story is gaining traction, where
+                it is spreading, and who is amplifying it. Treat the heuristics
+                as decision aids, not guarantees.
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   );
