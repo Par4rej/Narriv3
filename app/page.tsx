@@ -80,10 +80,10 @@ const fallbackMarket: MarketSnapshot = {
   name: "Loading asset",
   type: "Equity",
   price: "$0.00",
-  change1D: "0.0%",
-  change1W: "0.0%",
-  change1M: "0.0%",
-  changeYTD: "0.0%",
+  change1D: "—",
+  change1W: "—",
+  change1M: "—",
+  changeYTD: "—",
 };
 
 const fallbackSocial: SocialScanResponse = {
@@ -165,9 +165,13 @@ const fallbackSocial: SocialScanResponse = {
 };
 
 function perfTone(value: string) {
-  return value.startsWith("-")
-    ? "text-rose-300 bg-rose-400/10 border-rose-400/20"
-    : "text-emerald-300 bg-emerald-400/10 border-emerald-400/20";
+  if (value.startsWith("-")) {
+    return "text-rose-300 bg-rose-400/10 border-rose-400/20";
+  }
+  if (value === "—") {
+    return "text-white/70 bg-white/[0.04] border-white/10";
+  }
+  return "text-emerald-300 bg-emerald-400/10 border-emerald-400/20";
 }
 
 function toneClasses(tone: "Bullish" | "Mixed" | "Bearish") {
@@ -218,23 +222,24 @@ export default function Page() {
       setLoading(true);
       setError("");
 
-      const [marketRes, socialRes] = await Promise.all([
-        fetch(`/api/market?asset=${encodeURIComponent(nextSymbol)}`, {
-          cache: "no-store",
-        }),
-        fetch(`/api/social-scan?asset=${encodeURIComponent(nextSymbol)}`, {
-          cache: "no-store",
-        }),
-      ]);
-
+      const marketRes = await fetch(
+        `/api/market?asset=${encodeURIComponent(nextSymbol)}`,
+        { cache: "no-store" }
+      );
       const marketData = await marketRes.json();
-      const socialData = await socialRes.json();
 
       if (!marketRes.ok) {
-        throw new Error(marketData?.error || "Failed to load market snapshot");
+        throw new Error(`Market error: ${marketData?.error || "unknown"}`);
       }
+
+      const socialRes = await fetch(
+        `/api/social-scan?asset=${encodeURIComponent(nextSymbol)}`,
+        { cache: "no-store" }
+      );
+      const socialData = await socialRes.json();
+
       if (!socialRes.ok) {
-        throw new Error(socialData?.error || "Failed to load narrative data");
+        throw new Error(`Narrative error: ${socialData?.error || "unknown"}`);
       }
 
       setMarket(marketData);
@@ -452,6 +457,8 @@ export default function Page() {
                           className={`mt-2 text-sm font-semibold ${
                             item.value.startsWith("-")
                               ? "text-rose-300"
+                              : item.value === "—"
+                              ? "text-white/70"
                               : "text-emerald-300"
                           }`}
                         >
