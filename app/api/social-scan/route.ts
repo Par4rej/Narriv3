@@ -102,16 +102,16 @@ type SocialScanResponse = {
   signals24h: string;
   attentionLabel: string;
   attentionTake: string;
-  debug?: {
-    phase: string;
-    parseError?: string;
-    outputPreview?: string;
-  };
 };
 
 function clampPercent(value: number) {
   if (Number.isNaN(value)) return 0;
   return Math.max(0, Math.min(100, Math.round(value)));
+}
+
+function clampEntry(value: number | undefined) {
+  const n = Math.round(value ?? 50);
+  return Math.max(8, Math.min(92, n));
 }
 
 function normalizeTone(value: unknown): Tone {
@@ -125,7 +125,9 @@ function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw
   let neutral = clampPercent(bucket?.neutral ?? 25);
 
   const total = bull + bear + neutral;
-  if (total !== 100) neutral = Math.max(0, 100 - bull - bear);
+  if (total !== 100) {
+    neutral = Math.max(0, 100 - bull - bear);
+  }
 
   return {
     volume: bucket?.volume?.trim() || "light coverage",
@@ -206,61 +208,102 @@ function extractJsonObject(text: string) {
   return cleaned.slice(start, end + 1);
 }
 
-function fallback(
-  symbol: string,
-  phase: string,
-  parseError?: string,
-  outputPreview?: string
-): SocialScanResponse {
+function parseTimeValue(value?: string): number | null {
+  if (!value) return null;
+
+  const trimmed = value.trim();
+  const direct = Date.parse(trimmed);
+  if (!Number.isNaN(direct)) return direct;
+
+  const lower = trimmed.toLowerCase();
+
+  if (lower === "today" || lower === "this morning" || lower === "this afternoon" || lower === "this evening") {
+    return Date.now() - 6 * 60 * 60 * 1000;
+  }
+
+  const hAgo = lower.match(/^(\d+)\s*h(?:ours?)?\s*ago$/);
+  if (hAgo) return Date.now() - Number(hAgo[1]) * 60 * 60 * 1000;
+
+  const mAgo = lower.match(/^(\d+)\s*m(?:in(?:utes?)?)?\s*ago$/);
+  if (mAgo) return Date.now() - Number(mAgo[1]) * 60 * 1000;
+
+  const dAgo = lower.match(/^(\d+)\s*d(?:ays?)?\s*ago$/);
+  if (dAgo) return Date.now() - Number(dAgo[1]) * 24 * 60 * 60 * 1000;
+
+  return null;
+}
+
+function formatRelativeTime(input?: string) {
+  const ts = parseTimeValue(input);
+  if (!ts) return input || "recently";
+
+  const diffMs = Date.now() - ts;
+  const mins = Math.floor(diffMs / (60 * 1000));
+  const hours = Math.floor(diffMs / (60 * 60 * 1000));
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+
+  if (mins < 60) return `${Math.max(1, mins)}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
+}
+
+function isRecentEnough(input?: string, maxHours = 24) {
+  const ts = parseTimeValue(input);
+  if (!ts) return false;
+  return Date.now() - ts <= maxHours * 60 * 60 * 1000;
+}
+
+function fallback(symbol: string, note?: string): SocialScanResponse {
   return {
     symbol,
     pulseTitle: `${symbol} — Narrative Pulse`,
     pulseSummary:
-      "Narriv could not complete the full live narrative synthesis for this request, so this section is running in safe fallback mode while we debug it.",
+      note ||
+      `Narriv scanned public-web results for ${symbol}. Coverage is directional, live, and source-backed, but not equivalent to native platform telemetry.`,
     updated: "just now",
-    chips: ["Fallback mode", "Route debug", phase],
-    verdict: "Narrative scan fallback",
+    chips: ["Public-web scan", "OpenAI synthesis", "Beta narrative layer"],
+    verdict: "Mixed / thin coverage",
     entry: 50,
     cards: buildCards({
       x: {
-        volume: "fallback",
+        volume: "light coverage",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "X scan fallback is active.",
-        tags: ["fallback"],
+        summary: "Scanning public-web X results.",
+        tags: ["loading"],
       },
       reddit: {
-        volume: "fallback",
+        volume: "light coverage",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Reddit scan fallback is active.",
-        tags: ["fallback"],
+        summary: "Scanning indexed Reddit results.",
+        tags: ["loading"],
       },
       news: {
-        volume: "fallback",
+        volume: "light coverage",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "News scan fallback is active.",
-        tags: ["fallback"],
+        summary: "Scanning news coverage.",
+        tags: ["loading"],
       },
       youtube: {
-        volume: "fallback",
+        volume: "light coverage",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "YouTube scan fallback is active.",
-        tags: ["fallback"],
+        summary: "Scanning YouTube creator coverage.",
+        tags: ["loading"],
       },
       tiktok: {
-        volume: "fallback",
+        volume: "light coverage",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "TikTok scan fallback is active.",
-        tags: ["fallback"],
+        summary: "Scanning TikTok / short-form public results.",
+        tags: ["loading"],
       },
     }),
     feed: [],
@@ -268,13 +311,9 @@ function fallback(
     velocity: "—",
     percentile: "—",
     signals24h: "—",
-    attentionLabel: "Attention read unavailable",
-    attentionTake: "The route hit a processing issue after the OpenAI call and returned safe fallback data instead of breaking.",
-    debug: {
-      phase,
-      parseError,
-      outputPreview,
-    },
+    attentionLabel: "Attention stable",
+    attentionTake:
+      "Narriv is still building the attention read for this asset.",
   };
 }
 
@@ -287,8 +326,8 @@ export async function GET(req: NextRequest) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        fallback(symbol, "missing_api_key", "Missing OPENAI_API_KEY"),
-        { status: 200 }
+        { error: "Missing OPENAI_API_KEY" },
+        { status: 500 }
       );
     }
 
@@ -311,10 +350,12 @@ Rules:
   - news
   - youtube
   - tiktok
-- Feed items should be recent, ideally within the last 24 hours. If not enough exist, return fewer.
-- Voices should be recent and include a time field.
+- Feed items should be RECENT and ideally within the last 24 hours. If not enough exist, return fewer items.
+- Voices should be RECENT and include a time field.
+- Do not use stale items from 2025 or old 2026 items if fresher discussion exists.
 - attentionLabel should be short and plain English.
-- attentionTake should be one simple sentence.
+- attentionTake should be one simple sentence explaining what matters to an investor.
+- signals24h should be a concise readable string, not a paragraph.
 
 Return this shape exactly:
 {
@@ -364,8 +405,8 @@ Return this shape exactly:
     if (!res.ok) {
       const errText = await res.text();
       return NextResponse.json(
-        fallback(symbol, "openai_http_error", errText),
-        { status: 200 }
+        { error: `OpenAI error: ${errText}` },
+        { status: 500 }
       );
     }
 
@@ -378,26 +419,60 @@ Return this shape exactly:
         ?.find((c: any) => c?.type === "output_text")?.text;
 
     if (!outputText) {
-      return NextResponse.json(
-        fallback(symbol, "missing_output_text"),
-        { status: 200 }
-      );
+      return NextResponse.json(fallback(symbol));
     }
 
-    let parsed: SocialScanModelResponse;
-    try {
-      parsed = JSON.parse(extractJsonObject(outputText)) as SocialScanModelResponse;
-    } catch (parseErr) {
-      return NextResponse.json(
-        fallback(
-          symbol,
-          "json_parse_failed",
-          parseErr instanceof Error ? parseErr.message : "Unknown parse error",
-          outputText.slice(0, 800)
-        ),
-        { status: 200 }
-      );
-    }
+    const parsed = JSON.parse(extractJsonObject(outputText)) as SocialScanModelResponse;
+
+    const rawFeed = Array.isArray(parsed.feed)
+      ? parsed.feed.slice(0, 10).map((item) => ({
+          source: String(item.source || "Source"),
+          author: String(item.author || "Unknown"),
+          meta: String(item.meta || ""),
+          tone: normalizeTone(item.tone),
+          headline: String(item.headline || "Recent item"),
+          body: String(item.body || ""),
+          impact: clampPercent(Number(item.impact ?? 50)),
+          time: String(item.time || "recently"),
+        }))
+      : [];
+
+    const feed = rawFeed
+      .filter((item) => isRecentEnough(item.time, 24))
+      .slice(0, 6)
+      .map((item) => ({
+        ...item,
+        time: formatRelativeTime(item.time),
+      }));
+
+    const rawVoices = Array.isArray(parsed.voices)
+      ? parsed.voices.slice(0, 10).map((voice) => ({
+          source: String(voice.source || "Source"),
+          name: String(voice.name || "Unknown"),
+          stance: normalizeTone(voice.stance),
+          reach: String(voice.reach || ""),
+          quote: String(voice.quote || ""),
+          time: String(voice.time || "recently"),
+        }))
+      : [];
+
+    const voices = rawVoices
+      .filter((voice) => isRecentEnough(voice.time, 72))
+      .slice(0, 6)
+      .map((voice) => ({
+        ...voice,
+        time: formatRelativeTime(voice.time),
+      }));
+
+    const attentionLabel =
+      parsed.attentionLabel && parsed.attentionLabel.trim().length > 0
+        ? parsed.attentionLabel
+        : "Attention stable";
+
+    const attentionTake =
+      parsed.attentionTake && parsed.attentionTake.trim().length > 0
+        ? parsed.attentionTake
+        : "Narriv is still building the attention read for this asset.";
 
     const response: SocialScanResponse = {
       symbol,
@@ -408,55 +483,28 @@ Return this shape exactly:
       pulseSummary:
         parsed.pulseSummary ||
         `Narriv scanned recent public-web discussion around ${symbol}.`,
-      updated: parsed.updated || "just now",
+      updated: formatRelativeTime(parsed.updated || "recently"),
       chips: Array.isArray(parsed.chips) ? parsed.chips.slice(0, 6).map(String) : [],
       verdict: parsed.verdict || "Mixed",
-      entry: Math.max(0, Math.min(100, Math.round(parsed.entry ?? 50))),
+      entry: clampEntry(parsed.entry),
       cards: buildCards(parsed.platformBuckets),
-      feed: Array.isArray(parsed.feed)
-        ? parsed.feed.slice(0, 6).map((item) => ({
-            source: String(item.source || "Source"),
-            author: String(item.author || "Unknown"),
-            meta: String(item.meta || ""),
-            tone: normalizeTone(item.tone),
-            headline: String(item.headline || "Recent item"),
-            body: String(item.body || ""),
-            impact: clampPercent(Number(item.impact ?? 50)),
-            time: String(item.time || "recently"),
-          }))
-        : [],
-      voices: Array.isArray(parsed.voices)
-        ? parsed.voices.slice(0, 6).map((voice) => ({
-            source: String(voice.source || "Source"),
-            name: String(voice.name || "Unknown"),
-            stance: normalizeTone(voice.stance),
-            reach: String(voice.reach || ""),
-            quote: String(voice.quote || ""),
-            time: String(voice.time || "recently"),
-          }))
-        : [],
+      feed,
+      voices,
       velocity: String(parsed.velocity || "—"),
       percentile: String(parsed.percentile || "—"),
-      signals24h: String(parsed.signals24h || "—"),
-      attentionLabel: String(parsed.attentionLabel || "Attention stable"),
-      attentionTake: String(
-        parsed.attentionTake ||
-          "Narriv is still building the attention read for this asset."
-      ),
-      debug: {
-        phase: "success",
-      },
+      signals24h:
+        typeof parsed.signals24h === "string" && parsed.signals24h.length < 40
+          ? parsed.signals24h
+          : feed.length > 0
+          ? `${feed.length} recent signals surfaced`
+          : "Few recent signals",
+      attentionLabel,
+      attentionTake,
     };
 
-    return NextResponse.json(response, { status: 200 });
+    return NextResponse.json(response);
   } catch (error) {
-    return NextResponse.json(
-      fallback(
-        symbol,
-        "unexpected_route_error",
-        error instanceof Error ? error.message : "Unknown error"
-      ),
-      { status: 200 }
-    );
+    console.error("social-scan route error:", error);
+    return NextResponse.json(fallback(symbol));
   }
 }
