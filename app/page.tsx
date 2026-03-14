@@ -75,20 +75,20 @@ type SocialScanResponse = {
   signals24h: string;
 };
 
-const fallbackMarket: MarketSnapshot = {
-  symbol: "NVDA",
-  name: "Loading asset",
-  type: "Equity",
-  price: "$0.00",
+const emptyMarket: MarketSnapshot = {
+  symbol: "",
+  name: "No asset selected",
+  type: "",
+  price: "—",
   change1D: "—",
   change1W: "—",
   change1M: "—",
   changeYTD: "—",
 };
 
-const fallbackSocial: SocialScanResponse = {
-  symbol: "NVDA",
-  pulseTitle: "Loading Narrative Pulse",
+const loadingSocial: SocialScanResponse = {
+  symbol: "",
+  pulseTitle: "Scanning narrative",
   pulseSummary:
     "Narriv is scanning live public-web results and building the narrative view.",
   updated: "just now",
@@ -165,13 +165,12 @@ const fallbackSocial: SocialScanResponse = {
 };
 
 function perfTone(value: string) {
-  if (value.startsWith("-")) {
-    return "text-rose-300 bg-rose-400/10 border-rose-400/20";
+  if (!value || value === "—") {
+    return "text-white/70 bg-white/5 border-white/10";
   }
-  if (value === "—") {
-    return "text-white/70 bg-white/[0.04] border-white/10";
-  }
-  return "text-emerald-300 bg-emerald-400/10 border-emerald-400/20";
+  return value.startsWith("-")
+    ? "text-rose-300 bg-rose-400/10 border-rose-400/20"
+    : "text-emerald-300 bg-emerald-400/10 border-emerald-400/20";
 }
 
 function toneClasses(tone: "Bullish" | "Mixed" | "Bearish") {
@@ -192,19 +191,23 @@ function entryLabel(entry: number) {
 }
 
 export default function Page() {
-  const [symbol, setSymbol] = useState("NVDA");
-  const [search, setSearch] = useState("NVDA");
+  const [symbol, setSymbol] = useState<string>("");
+  const [search, setSearch] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<SearchResult[]>([]);
-  const [market, setMarket] = useState<MarketSnapshot>(fallbackMarket);
-  const [social, setSocial] = useState<SocialScanResponse>(fallbackSocial);
-  const [loading, setLoading] = useState(false);
+  const [market, setMarket] = useState<MarketSnapshot>(emptyMarket);
+  const [social, setSocial] = useState<SocialScanResponse | null>(null);
+  const [marketLoading, setMarketLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState("");
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const entryState = useMemo(() => entryLabel(social.entry), [social.entry]);
+  const entryState = useMemo(
+    () => entryLabel(social?.entry ?? 50),
+    [social?.entry]
+  );
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -212,49 +215,9 @@ export default function Page() {
         setShowSuggestions(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  async function loadAsset(nextSymbol: string) {
-    try {
-      setLoading(true);
-      setError("");
-
-      const marketRes = await fetch(
-        `/api/market?asset=${encodeURIComponent(nextSymbol)}`,
-        { cache: "no-store" }
-      );
-      const marketData = await marketRes.json();
-
-      if (!marketRes.ok) {
-        throw new Error(`Market error: ${marketData?.error || "unknown"}`);
-      }
-
-      const socialRes = await fetch(
-        `/api/social-scan?asset=${encodeURIComponent(nextSymbol)}`,
-        { cache: "no-store" }
-      );
-      const socialData = await socialRes.json();
-
-      if (!socialRes.ok) {
-        throw new Error(`Narrative error: ${socialData?.error || "unknown"}`);
-      }
-
-      setMarket(marketData);
-      setSocial(socialData);
-      setSymbol(nextSymbol);
-      setSearch(nextSymbol);
-      setShowSuggestions(false);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to load asset";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function fetchSuggestions(q: string) {
     try {
@@ -273,10 +236,6 @@ export default function Page() {
   }
 
   useEffect(() => {
-    loadAsset("NVDA");
-  }, []);
-
-  useEffect(() => {
     if (!showSuggestions) return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -289,9 +248,61 @@ export default function Page() {
     };
   }, [search, showSuggestions]);
 
+  async function loadMarket(nextSymbol: string) {
+    setMarketLoading(true);
+    try {
+      const res = await fetch(`/api/market?asset=${encodeURIComponent(nextSymbol)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load market data");
+      setMarket(data);
+    } finally {
+      setMarketLoading(false);
+    }
+  }
+
+  async function loadSocial(nextSymbol: string) {
+    setSocialLoading(true);
+    setSocial({
+      ...loadingSocial,
+      symbol: nextSymbol,
+      pulseTitle: `${nextSymbol} — Narrative Pulse`,
+    });
+
+    try {
+      const res = await fetch(`/api/social-scan?asset=${encodeURIComponent(nextSymbol)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to load narrative data");
+      setSocial(data);
+    } finally {
+      setSocialLoading(false);
+    }
+  }
+
+  async function loadAsset(nextSymbol: string) {
+    try {
+      setError("");
+      setSymbol(nextSymbol);
+      setSearch(nextSymbol);
+      setShowSuggestions(false);
+
+      await loadMarket(nextSymbol);
+      void loadSocial(nextSymbol);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to load asset";
+      setError(message);
+    }
+  }
+
   function pickAsset(nextSymbol: string) {
     loadAsset(nextSymbol);
   }
+
+  const hasSelectedAsset = Boolean(symbol);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(94,231,255,0.14),transparent_20%),linear-gradient(180deg,#05060a,#0a0d15)] px-3 py-4 text-white sm:px-6 sm:py-6">
@@ -304,7 +315,7 @@ export default function Page() {
               </div>
               <h1 className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.02] tracking-tight sm:mt-5 sm:text-7xl">
                 Should you bet on{" "}
-                <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent animate-pulse">
                   this story?
                 </span>
               </h1>
@@ -343,8 +354,8 @@ export default function Page() {
                         }}
                         onFocus={() => setShowSuggestions(true)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            loadAsset(search.toUpperCase());
+                          if (e.key === "Enter" && search.trim()) {
+                            loadAsset(search.toUpperCase().trim());
                           }
                         }}
                         className="h-12 w-full bg-transparent text-[15px] outline-none placeholder:text-white/30 sm:h-14 sm:text-lg"
@@ -392,15 +403,19 @@ export default function Page() {
                   </div>
 
                   <button
-                    onClick={() => loadAsset(search.toUpperCase())}
+                    onClick={() => {
+                      if (search.trim()) {
+                        loadAsset(search.toUpperCase().trim());
+                      }
+                    }}
                     className="h-12 rounded-[18px] bg-[linear-gradient(135deg,#22ffaa,#00d4aa)] px-5 text-sm font-medium text-[#05060a] transition hover:scale-[1.01] hover:brightness-105 sm:h-14 sm:rounded-[22px] sm:px-7 sm:text-lg"
                   >
-                    {loading ? "Loading..." : "Analyze narrative"}
+                    {marketLoading || socialLoading ? "Loading..." : "Analyze narrative"}
                   </button>
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {["NVDA", "EQIX", "TSLA", "AAPL", "MSTR", "BTC"].map((pick) => (
+                  {["EQIX", "TSLA", "AAPL", "MSTR", "BTC", "MSFT"].map((pick) => (
                     <button
                       key={pick}
                       onClick={() => pickAsset(pick)}
@@ -424,18 +439,20 @@ export default function Page() {
                     </div>
                     <div className="mt-2 flex items-end gap-3">
                       <div className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-                        {market.price}
+                        {marketLoading && hasSelectedAsset ? "Loading..." : market.price}
                       </div>
                       <div
                         className={`rounded-full border px-3 py-1.5 text-sm ${perfTone(
                           market.change1D
                         )}`}
                       >
-                        {market.change1D} today
+                        {market.change1D === "—" ? "—" : `${market.change1D} today`}
                       </div>
                     </div>
                     <div className="mt-2 text-sm text-white/56">
-                      {market.name} · {market.symbol} · {market.type}
+                      {market.name}
+                      {market.symbol ? ` · ${market.symbol}` : ""}
+                      {market.type ? ` · ${market.type}` : ""}
                     </div>
                   </div>
 
@@ -479,381 +496,395 @@ export default function Page() {
           </div>
         ) : null}
 
-        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="mt-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3">
-                <div className="h-4 w-4 rounded-full border-2 border-emerald-300" />
+        {!hasSelectedAsset ? (
+          <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-8 text-center shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px]">
+            <div className="mx-auto max-w-3xl">
+              <div className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                Start with any asset
               </div>
-              <div>
-                <div className="text-2xl font-semibold tracking-tight sm:text-3xl">
-                  {social.pulseTitle}
-                </div>
-                <div className="mt-1 text-sm text-white/56">
-                  Synthesized from live public-web surfaces
-                </div>
-              </div>
+              <p className="mt-4 text-base leading-8 text-white/72">
+                Search any stock, ETF, or supported crypto to generate a live
+                narrative pulse from Finnhub market data and OpenAI public-web synthesis.
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-white/56">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              Updated {social.updated}
-            </div>
-          </div>
-
-          <div className="mt-6 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-6">
-            <p className="text-base leading-7 text-white/90 sm:text-xl sm:leading-9">
-              {social.pulseSummary}
-            </p>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {social.chips.map((chip) => (
-                <span
-                  key={chip}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/72"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 sm:gap-4">
-          {social.cards.map((card) => {
-            const tone =
-              card.bull > card.bear
-                ? "Bullish"
-                : card.bear > card.bull
-                ? "Bearish"
-                : "Mixed";
-
-            return (
-              <div
-                key={card.platform}
-                className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.94),rgba(15,19,32,0.96))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:p-5"
-              >
-                <div
-                  className="-mx-5 -mt-5 mb-4 h-[2px] rounded-t-[30px]"
-                  style={{ backgroundColor: card.accent }}
-                />
-                <div className="flex items-start justify-between gap-3">
+          </section>
+        ) : (
+          <>
+            <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className="mt-1 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3">
+                    <div className="h-4 w-4 rounded-full border-2 border-emerald-300" />
+                  </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-xs font-bold"
-                        style={{
-                          backgroundColor: card.soft,
-                          color: card.accent,
-                        }}
-                      >
-                        {card.icon}
-                      </span>
-                      <div className="text-base font-medium text-white sm:text-lg">
-                        {card.platform}
-                      </div>
+                    <div className="text-2xl font-semibold tracking-tight sm:text-3xl">
+                      {social?.pulseTitle || `${symbol} — Narrative Pulse`}
                     </div>
-                    <div className="mt-1 text-xs text-white/46">
-                      {card.volume}
+                    <div className="mt-1 text-sm text-white/56">
+                      Synthesized from live public-web surfaces
                     </div>
                   </div>
-                  <div
-                    className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
-                      tone as "Bullish" | "Mixed" | "Bearish"
-                    )}`}
-                  >
-                    {tone}
-                  </div>
                 </div>
+                <div className="flex items-center gap-2 text-sm text-white/56">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  Updated {social?.updated || "just now"}
+                </div>
+              </div>
 
-                <div className="mt-4 space-y-2 text-xs text-white/48">
-                  {[
-                    { label: "BULL", value: card.bull, cls: "bg-emerald-400" },
-                    { label: "BEAR", value: card.bear, cls: "bg-rose-400" },
-                    { label: "NEUT", value: card.neutral, cls: "bg-slate-400" },
-                  ].map((row) => (
-                    <div key={row.label}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span>{row.label}</span>
-                        <span>{row.value}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-white/8">
-                        <div
-                          className={`h-2 rounded-full ${row.cls}`}
-                          style={{ width: `${row.value}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-3 text-sm leading-6 text-white/80 sm:mt-4 sm:leading-7">
-                  {card.summary}
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {card.tags.map((tag) => (
+              <div className="mt-6 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-6">
+                <p className="text-base leading-7 text-white/90 sm:text-xl sm:leading-9">
+                  {social?.pulseSummary || loadingSocial.pulseSummary}
+                </p>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {(social?.chips || loadingSocial.chips).map((chip) => (
                     <span
-                      key={tag}
-                      className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-white/52"
+                      key={chip}
+                      className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-white/72"
                     >
-                      {tag}
+                      {chip}
                     </span>
                   ))}
                 </div>
               </div>
-            );
-          })}
-        </section>
+            </section>
 
-        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">
-                Verdict
-              </div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-                {social.verdict}
-              </div>
-            </div>
-            <div
-              className={`rounded-full border border-white/10 bg-white/[0.04] px-3 py-2 text-sm ${entryState.color}`}
-            >
-              Entry timing: {entryState.label} — {social.entry}%
-            </div>
-          </div>
+            <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5 sm:gap-4">
+              {(social?.cards || loadingSocial.cards).map((card) => {
+                const tone =
+                  card.bull > card.bear
+                    ? "Bullish"
+                    : card.bear > card.bull
+                    ? "Bearish"
+                    : "Mixed";
 
-          <div className="mt-6">
-            <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.16em] text-white/40">
-              <span>Entry timing</span>
-              <span>{entryState.label}</span>
-            </div>
-            <div className="relative h-8">
-              <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-white/8">
-                <div className="flex h-full w-full">
-                  <div className="h-full w-[35%] bg-emerald-400" />
-                  <div className="h-full w-[20%] bg-cyan-400" />
-                  <div className="h-full w-[25%] bg-amber-400" />
-                  <div className="h-full w-[20%] bg-rose-400" />
-                </div>
-              </div>
-              <div
-                className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#05060a]"
-                style={{ left: `calc(${social.entry}% - 10px)` }}
-              />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-white/40">
-              <span>Early</span>
-              <span>Mid</span>
-              <span>Late</span>
-              <span>Crowded</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-          <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <div className="text-2xl font-semibold tracking-tight">
-                  Live Signal Feed
-                </div>
-                <div className="mt-1 text-sm text-white/56">
-                  Representative items shaping the visible narrative around{" "}
-                  {social.symbol}
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2 text-xs text-white/52">
-                {["All", "X", "Reddit", "News", "YT"].map((f) => (
-                  <span
-                    key={f}
-                    className={`rounded-full border px-3 py-1 ${
-                      f === "All"
-                        ? "border-white/10 bg-white/[0.06] text-white"
-                        : "border-white/10 bg-white/[0.04]"
-                    }`}
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-5 space-y-4">
-              {social.feed.map((item) => (
-                <div
-                  key={`${item.source}-${item.author}-${item.headline}`}
-                  className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-cyan-200">
-                          {item.source}
-                        </span>
-                        <span className="text-sm font-medium text-white">
-                          {item.author}
-                        </span>
-                        <span className="text-xs text-white/46">
-                          {item.meta}
-                        </span>
-                      </div>
-                      <div className="mt-3 text-[15px] font-semibold leading-6 text-white/90 sm:text-base">
-                        {item.headline}
-                      </div>
-                      <div className="mt-1 text-sm leading-7 text-white/78 sm:text-base sm:leading-8">
-                        {item.body}
-                      </div>
-                      <div className="mt-4 flex items-center gap-3 text-xs text-white/52">
-                        <span
-                          className={`rounded-full border px-2.5 py-1 ${toneClasses(
-                            item.tone
-                          )}`}
-                        >
-                          {item.tone}
-                        </span>
-                        <span>impact</span>
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-white/8">
-                          <div
-                            className="h-2 rounded-full bg-cyan-400"
-                            style={{ width: `${item.impact}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-white/40">{item.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
-              <div className="text-2xl font-semibold tracking-tight">
-                Attention Velocity
-              </div>
-              <div className="mt-1 text-sm text-white/56">
-                How quickly this story is broadening right now
-              </div>
-              <div className="mt-5 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-5">
-                <div className="flex h-32 items-end gap-2">
-                  {[28, 32, 31, 36, 40, 38, 46, 44, 52, 57, 55, 63].map(
-                    (h, idx) => (
-                      <div
-                        key={idx}
-                        className="flex-1 rounded-t-md bg-emerald-400/80"
-                        style={{ height: `${h}%` }}
-                      />
-                    )
-                  )}
-                </div>
-              </div>
-              <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3">
-                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
-                  <div className="text-2xl font-semibold text-emerald-300">
-                    {social.velocity}
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">vs 7d avg</div>
-                </div>
-                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
-                  <div className="text-2xl font-semibold text-amber-300">
-                    {social.percentile}
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">percentile</div>
-                </div>
-                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
-                  <div className="text-2xl font-semibold text-white">
-                    {social.signals24h}
-                  </div>
-                  <div className="mt-1 text-xs text-white/46">
-                    signals / 24h
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
-              <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-                <Users className="h-6 w-6 text-cyan-300" />
-                Key Opinion Leaders
-              </div>
-              <div className="mt-1 text-sm text-white/56">
-                Who appears to be shaping the visible framing around{" "}
-                {social.symbol}
-              </div>
-              <div className="mt-5 space-y-3">
-                {social.voices.map((voice) => (
+                return (
                   <div
-                    key={`${voice.source}-${voice.name}`}
-                    className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4"
+                    key={`${symbol}-${card.platform}`}
+                    className="rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.94),rgba(15,19,32,0.96))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] sm:rounded-[30px] sm:p-5"
                   >
+                    <div
+                      className="-mx-5 -mt-5 mb-4 h-[2px] rounded-t-[30px]"
+                      style={{ backgroundColor: card.accent }}
+                    />
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-xs uppercase tracking-[0.16em] text-white/40">
-                          {voice.source}
-                        </div>
-                        <div className="mt-2 text-sm font-medium text-white">
-                          {voice.name}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-xs font-bold"
+                            style={{
+                              backgroundColor: card.soft,
+                              color: card.accent,
+                            }}
+                          >
+                            {card.icon}
+                          </span>
+                          <div className="text-base font-medium text-white sm:text-lg">
+                            {card.platform}
+                          </div>
                         </div>
                         <div className="mt-1 text-xs text-white/46">
-                          {voice.reach}
+                          {card.volume}
                         </div>
                       </div>
                       <div
                         className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
-                          voice.stance
+                          tone as "Bullish" | "Mixed" | "Bearish"
                         )}`}
                       >
-                        {voice.stance}
+                        {tone}
                       </div>
                     </div>
-                    <div className="mt-4 text-sm leading-7 text-white/82">
-                      “{voice.quote}”
+
+                    <div className="mt-4 space-y-2 text-xs text-white/48">
+                      {[
+                        { label: "BULL", value: card.bull, cls: "bg-emerald-400" },
+                        { label: "BEAR", value: card.bear, cls: "bg-rose-400" },
+                        { label: "NEUT", value: card.neutral, cls: "bg-slate-400" },
+                      ].map((row) => (
+                        <div key={row.label}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span>{row.label}</span>
+                            <span>{row.value}%</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/8">
+                            <div
+                              className={`h-2 rounded-full ${row.cls}`}
+                              style={{ width: `${row.value}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 text-sm leading-6 text-white/80 sm:mt-4 sm:leading-7">
+                      {card.summary}
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {card.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-white/52"
+                        >
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+                );
+              })}
+            </section>
 
-        <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
-          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
-            How Narriv works
-          </div>
-          <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Open about the logic, careful about the claims.
-          </h2>
-          <div className="mt-5 grid gap-4 md:grid-cols-3">
-            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
-              <div className="text-sm font-semibold text-white">
-                What is fully real
+            <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">
+                    Verdict
+                  </div>
+                  <div className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                    {social?.verdict || loadingSocial.verdict}
+                  </div>
+                </div>
+                <div
+                  className={`rounded-full border px-3 py-2 text-sm ${entryState.color} border-white/10 bg-white/[0.04]`}
+                >
+                  Entry timing: {entryState.label} — {social?.entry ?? 50}%
+                </div>
               </div>
-              <div className="mt-3 text-sm leading-7 text-white/74">
-                Search suggestions, price, and return windows come from Finnhub.
-                Public-web content is retrieved live through OpenAI web search.
+
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between text-xs uppercase tracking-[0.16em] text-white/40">
+                  <span>Entry timing</span>
+                  <span>{entryState.label}</span>
+                </div>
+                <div className="relative h-8">
+                  <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-white/8">
+                    <div className="flex h-full w-full">
+                      <div className="h-full w-[35%] bg-emerald-400" />
+                      <div className="h-full w-[20%] bg-cyan-400" />
+                      <div className="h-full w-[25%] bg-amber-400" />
+                      <div className="h-full w-[20%] bg-rose-400" />
+                    </div>
+                  </div>
+                  <div
+                    className="absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border-2 border-white bg-[#05060a]"
+                    style={{ left: `calc(${social?.entry ?? 50}% - 10px)` }}
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  <span>Early</span>
+                  <span>Mid</span>
+                  <span>Late</span>
+                  <span>Crowded</span>
+                </div>
               </div>
-            </div>
-            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
-              <div className="text-sm font-semibold text-white">
-                What is AI-inferred
+            </section>
+
+            <section className="grid gap-4 sm:gap-6 xl:grid-cols-[1.12fr_0.88fr]">
+              <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-2xl font-semibold tracking-tight">
+                      Live Signal Feed
+                    </div>
+                    <div className="mt-1 text-sm text-white/56">
+                      Representative items shaping the visible narrative around{" "}
+                      {social?.symbol || symbol}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  {(social?.feed || []).map((item) => (
+                    <div
+                      key={`${symbol}-${item.source}-${item.author}-${item.headline}`}
+                      className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-cyan-200">
+                              {item.source}
+                            </span>
+                            <span className="text-sm font-medium text-white">
+                              {item.author}
+                            </span>
+                            <span className="text-xs text-white/46">
+                              {item.meta}
+                            </span>
+                          </div>
+                          <div className="mt-3 text-[15px] font-semibold leading-6 text-white/90 sm:text-base">
+                            {item.headline}
+                          </div>
+                          <div className="mt-1 text-sm leading-7 text-white/78 sm:text-base sm:leading-8">
+                            {item.body}
+                          </div>
+                          <div className="mt-4 flex items-center gap-3 text-xs text-white/52">
+                            <span
+                              className={`rounded-full border px-2.5 py-1 ${toneClasses(
+                                item.tone
+                              )}`}
+                            >
+                              {item.tone}
+                            </span>
+                            <span>impact</span>
+                            <div className="h-2 w-24 overflow-hidden rounded-full bg-white/8">
+                              <div
+                                className="h-2 rounded-full bg-cyan-400"
+                                style={{ width: `${item.impact}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-xs text-white/40">{item.time}</div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {!socialLoading && social && social.feed.length === 0 ? (
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5 text-sm text-white/60">
+                      No strong feed items surfaced from the current public-web scan.
+                    </div>
+                  ) : null}
+                </div>
               </div>
-              <div className="mt-3 text-sm leading-7 text-white/74">
-                Platform sentiment splits, verdicts, velocity, crowding, and
-                entry timing are Narriv signals built from live evidence, not
-                official platform telemetry.
+
+              <div className="space-y-6">
+                <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+                  <div className="text-2xl font-semibold tracking-tight">
+                    Attention Velocity
+                  </div>
+                  <div className="mt-1 text-sm text-white/56">
+                    How quickly this story is broadening right now
+                  </div>
+                  <div className="mt-5 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-5">
+                    <div className="flex h-32 items-end gap-2">
+                      {[28, 32, 31, 36, 40, 38, 46, 44, 52, 57, 55, 63].map(
+                        (h, idx) => (
+                          <div
+                            key={`${symbol}-${idx}`}
+                            className="flex-1 rounded-t-md bg-emerald-400/80"
+                            style={{ height: `${h}%` }}
+                          />
+                        )
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-3 gap-2 sm:mt-5 sm:gap-3">
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                      <div className="text-2xl font-semibold text-emerald-300">
+                        {social?.velocity || "—"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/46">vs 7d avg</div>
+                    </div>
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                      <div className="text-2xl font-semibold text-amber-300">
+                        {social?.percentile || "—"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/46">percentile</div>
+                    </div>
+                    <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
+                      <div className="text-2xl font-semibold text-white">
+                        {social?.signals24h || "—"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/46">
+                        signals / 24h
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
+                  <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+                    <Users className="h-6 w-6 text-cyan-300" />
+                    Key Opinion Leaders
+                  </div>
+                  <div className="mt-1 text-sm text-white/56">
+                    Who appears to be shaping the visible framing around{" "}
+                    {social?.symbol || symbol}
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {(social?.voices || []).map((voice) => (
+                      <div
+                        key={`${symbol}-${voice.source}-${voice.name}`}
+                        className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-xs uppercase tracking-[0.16em] text-white/40">
+                              {voice.source}
+                            </div>
+                            <div className="mt-2 text-sm font-medium text-white">
+                              {voice.name}
+                            </div>
+                            <div className="mt-1 text-xs text-white/46">
+                              {voice.reach}
+                            </div>
+                          </div>
+                          <div
+                            className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
+                              voice.stance
+                            )}`}
+                          >
+                            {voice.stance}
+                          </div>
+                        </div>
+                        <div className="mt-4 text-sm leading-7 text-white/82">
+                          “{voice.quote}”
+                        </div>
+                      </div>
+                    ))}
+
+                    {!socialLoading && social && social.voices.length === 0 ? (
+                      <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5 text-sm text-white/60">
+                        No strong KOL set surfaced from the current public-web scan.
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
-              <div className="text-sm font-semibold text-white">
-                How to use it
+            </section>
+
+            <section className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:rounded-[36px] sm:p-8">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-4 py-2 text-[11px] uppercase tracking-[0.22em] text-cyan-200/75">
+                How Narriv works
               </div>
-              <div className="mt-3 text-sm leading-7 text-white/74">
-                Use Narriv to understand what story is gaining traction, where
-                it is spreading, and who is amplifying it. Treat the heuristics
-                as decision aids, not guarantees.
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+                Open about the logic, careful about the claims.
+              </h2>
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                  <div className="text-sm font-semibold text-white">
+                    What is fully real
+                  </div>
+                  <div className="mt-3 text-sm leading-7 text-white/74">
+                    Search suggestions, price, and return windows come from Finnhub.
+                    Public-web content is retrieved live through OpenAI web search.
+                  </div>
+                </div>
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                  <div className="text-sm font-semibold text-white">
+                    What is AI-inferred
+                  </div>
+                  <div className="mt-3 text-sm leading-7 text-white/74">
+                    Platform sentiment splits, verdicts, velocity, crowding, and
+                    entry timing are Narriv signals built from live evidence, not
+                    official platform telemetry.
+                  </div>
+                </div>
+                <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5">
+                  <div className="text-sm font-semibold text-white">
+                    How to use it
+                  </div>
+                  <div className="mt-3 text-sm leading-7 text-white/74">
+                    Use Narriv to understand what story is gaining traction, where
+                    it is spreading, and who is amplifying it. Treat the heuristics
+                    as decision aids, not guarantees.
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
+          </>
+        )}
       </div>
     </main>
   );
