@@ -13,21 +13,21 @@ type PlatformBucketRaw = {
   tags?: string[];
 };
 
-type FeedItem = {
+type FeedItemRaw = {
   source?: string;
   author?: string;
   meta?: string;
-  tone?: Tone;
+  tone?: Tone | string;
   headline?: string;
   body?: string;
   impact?: number;
   time?: string;
 };
 
-type VoiceItem = {
+type VoiceItemRaw = {
   source?: string;
   name?: string;
-  stance?: Tone;
+  stance?: Tone | string;
   reach?: string;
   quote?: string;
   time?: string;
@@ -48,8 +48,8 @@ type SocialScanModelResponse = {
     youtube?: PlatformBucketRaw;
     tiktok?: PlatformBucketRaw;
   };
-  feed?: FeedItem[];
-  voices?: VoiceItem[];
+  feed?: FeedItemRaw[];
+  voices?: VoiceItemRaw[];
   velocity?: string;
   percentile?: string;
   signals24h?: string;
@@ -70,6 +70,26 @@ type PlatformCard = {
   tags: string[];
 };
 
+type FeedItem = {
+  source: string;
+  author: string;
+  meta: string;
+  tone: Tone;
+  headline: string;
+  body: string;
+  impact: number;
+  time: string;
+};
+
+type VoiceItem = {
+  source: string;
+  name: string;
+  stance: Tone;
+  reach: string;
+  quote: string;
+  time: string;
+};
+
 type SocialScanResponse = {
   symbol: string;
   pulseTitle: string;
@@ -79,24 +99,8 @@ type SocialScanResponse = {
   verdict: string;
   entry: number;
   cards: PlatformCard[];
-  feed: {
-    source: string;
-    author: string;
-    meta: string;
-    tone: Tone;
-    headline: string;
-    body: string;
-    impact: number;
-    time: string;
-  }[];
-  voices: {
-    source: string;
-    name: string;
-    stance: Tone;
-    reach: string;
-    quote: string;
-    time: string;
-  }[];
+  feed: FeedItem[];
+  voices: VoiceItem[];
   velocity: string;
   percentile: string;
   signals24h: string;
@@ -104,14 +108,20 @@ type SocialScanResponse = {
   attentionTake: string;
 };
 
-function clampPercent(value: number) {
-  if (Number.isNaN(value)) return 0;
-  return Math.max(0, Math.min(100, Math.round(value)));
+function s(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function clampEntry(value: number | undefined) {
-  const n = Math.round(value ?? 50);
-  return Math.max(8, Math.min(92, n));
+function clampPercent(value: unknown, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function clampEntry(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 50;
+  return Math.max(8, Math.min(92, Math.round(n)));
 }
 
 function normalizeTone(value: unknown): Tone {
@@ -120,9 +130,9 @@ function normalizeTone(value: unknown): Tone {
 }
 
 function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw> {
-  const bull = clampPercent(bucket?.bull ?? 50);
-  const bear = clampPercent(bucket?.bear ?? 25);
-  let neutral = clampPercent(bucket?.neutral ?? 25);
+  const bull = clampPercent(bucket?.bull, 50);
+  const bear = clampPercent(bucket?.bear, 25);
+  let neutral = clampPercent(bucket?.neutral, 25);
 
   const total = bull + bear + neutral;
   if (total !== 100) {
@@ -130,14 +140,14 @@ function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw
   }
 
   return {
-    volume: bucket?.volume?.trim() || "light coverage",
+    volume: s(bucket?.volume, "light coverage"),
     bull,
     bear,
     neutral,
-    summary: bucket?.summary?.trim() || "Coverage is currently thin.",
+    summary: s(bucket?.summary, "Coverage is currently thin."),
     tags:
       Array.isArray(bucket?.tags) && bucket.tags.length > 0
-        ? bucket.tags.slice(0, 5).map(String)
+        ? bucket.tags.slice(0, 5).map((x) => s(x)).filter(Boolean)
         : ["thin coverage"],
   };
 }
@@ -154,58 +164,40 @@ function buildCards(
   return [
     {
       platform: "Twitter / X",
-      icon: "𝕏",
+      icon: "X",
       accent: "#1DA1F2",
       soft: "rgba(29,161,242,0.12)",
       ...x,
     },
     {
       platform: "Reddit",
-      icon: "⬡",
+      icon: "R",
       accent: "#FF5700",
       soft: "rgba(255,87,0,0.12)",
       ...reddit,
     },
     {
       platform: "News",
-      icon: "◉",
+      icon: "N",
       accent: "#5E8AFF",
       soft: "rgba(94,138,255,0.12)",
       ...news,
     },
     {
       platform: "YouTube",
-      icon: "▶",
+      icon: "Y",
       accent: "#FF0033",
       soft: "rgba(255,0,51,0.12)",
       ...youtube,
     },
     {
       platform: "TikTok",
-      icon: "♪",
+      icon: "T",
       accent: "#FE2C55",
       soft: "rgba(254,44,85,0.12)",
       ...tiktok,
     },
   ];
-}
-
-function cleanOutputText(text: string) {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-}
-
-function extractJsonObject(text: string) {
-  const cleaned = cleanOutputText(text);
-  const start = cleaned.indexOf("{");
-  const end = cleaned.lastIndexOf("}");
-  if (start === -1 || end === -1 || end <= start) {
-    throw new Error("No JSON object found in model output");
-  }
-  return cleaned.slice(start, end + 1);
 }
 
 function parseTimeValue(value?: string): number | null {
@@ -217,8 +209,14 @@ function parseTimeValue(value?: string): number | null {
 
   const lower = trimmed.toLowerCase();
 
-  if (lower === "today" || lower === "this morning" || lower === "this afternoon" || lower === "this evening") {
-    return Date.now() - 6 * 60 * 60 * 1000;
+  if (
+    lower === "today" ||
+    lower === "this morning" ||
+    lower === "this afternoon" ||
+    lower === "this evening" ||
+    lower === "just now"
+  ) {
+    return Date.now() - 30 * 60 * 1000;
   }
 
   const hAgo = lower.match(/^(\d+)\s*h(?:ours?)?\s*ago$/);
@@ -253,82 +251,127 @@ function isRecentEnough(input?: string, maxHours = 24) {
   return Date.now() - ts <= maxHours * 60 * 60 * 1000;
 }
 
+function cleanOutputText(text: string) {
+  return text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
+function extractFirstJsonObject(text: string) {
+  const cleaned = cleanOutputText(text);
+  const start = cleaned.indexOf("{");
+  if (start === -1) throw new Error("No JSON object start found");
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === `"`) {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === `"`) {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        return cleaned.slice(start, i + 1);
+      }
+    }
+  }
+
+  throw new Error("No complete JSON object found");
+}
+
 function fallback(symbol: string, note?: string): SocialScanResponse {
   return {
     symbol,
     pulseTitle: `${symbol} — Narrative Pulse`,
     pulseSummary:
       note ||
-      `Narriv scanned public-web results for ${symbol}. Coverage is directional, live, and source-backed, but not equivalent to native platform telemetry.`,
+      `Narriv scanned public-web results for ${symbol}. Coverage is directional and live when available, but this request fell back safely instead of failing.`,
     updated: "just now",
-    chips: ["Public-web scan", "OpenAI synthesis", "Beta narrative layer"],
+    chips: ["Fallback mode", "Live route", "Retry soon"],
     verdict: "Mixed / thin coverage",
     entry: 50,
     cards: buildCards({
       x: {
-        volume: "light coverage",
-        bull: 50,
-        bear: 25,
-        neutral: 25,
-        summary: "Scanning public-web X results.",
-        tags: ["loading"],
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: "No recent discussions surfaced on X.",
+        tags: ["thin coverage"],
       },
       reddit: {
-        volume: "light coverage",
-        bull: 50,
-        bear: 25,
-        neutral: 25,
-        summary: "Scanning indexed Reddit results.",
-        tags: ["loading"],
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: "No recent discussions surfaced on Reddit.",
+        tags: ["thin coverage"],
       },
       news: {
-        volume: "light coverage",
-        bull: 50,
-        bear: 25,
-        neutral: 25,
-        summary: "Scanning news coverage.",
-        tags: ["loading"],
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: "No recent news items were strong enough to surface.",
+        tags: ["thin coverage"],
       },
       youtube: {
-        volume: "light coverage",
-        bull: 50,
-        bear: 25,
-        neutral: 25,
-        summary: "Scanning YouTube creator coverage.",
-        tags: ["loading"],
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: "No recent YouTube items surfaced.",
+        tags: ["thin coverage"],
       },
       tiktok: {
-        volume: "light coverage",
-        bull: 50,
-        bear: 25,
-        neutral: 25,
-        summary: "Scanning TikTok / short-form public results.",
-        tags: ["loading"],
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: "No recent TikTok items surfaced.",
+        tags: ["thin coverage"],
       },
     }),
     feed: [],
     voices: [],
-    velocity: "—",
-    percentile: "—",
-    signals24h: "—",
+    velocity: "Stable",
+    percentile: "50th",
+    signals24h: "Few recent signals",
     attentionLabel: "Attention stable",
     attentionTake:
-      "Narriv is still building the attention read for this asset.",
+      "Recent public-web signal was too thin or inconsistent, so Narriv returned a safe fallback instead of erroring.",
   };
 }
 
 export async function GET(req: NextRequest) {
-  const symbol = (req.nextUrl.searchParams.get("asset") || "UNKNOWN")
-    .trim()
-    .toUpperCase();
+  const symbol = s(req.nextUrl.searchParams.get("asset"), "UNKNOWN").toUpperCase();
 
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
-      );
+      return NextResponse.json(fallback(symbol, "OpenAI key is missing."), {
+        status: 200,
+      });
     }
 
     const prompt = `
@@ -350,12 +393,12 @@ Rules:
   - news
   - youtube
   - tiktok
-- Feed items should be RECENT and ideally within the last 24 hours. If not enough exist, return fewer items.
+- Feed items should be RECENT and ideally within the last 24 hours. If not enough exist, return fewer.
 - Voices should be RECENT and include a time field.
-- Do not use stale items from 2025 or old 2026 items if fresher discussion exists.
 - attentionLabel should be short and plain English.
 - attentionTake should be one simple sentence explaining what matters to an investor.
-- signals24h should be a concise readable string, not a paragraph.
+- Keep all strings concise and readable.
+- If a platform has weak coverage, say so plainly.
 
 Return this shape exactly:
 {
@@ -365,16 +408,16 @@ Return this shape exactly:
   "updated": "string",
   "chips": ["string"],
   "verdict": "string",
-  "entry": 0,
+  "entry": 50,
   "platformBuckets": {
-    "x": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
-    "reddit": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
-    "news": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
-    "youtube": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
-    "tiktok": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] }
+    "x": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
+    "reddit": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
+    "news": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
+    "youtube": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
+    "tiktok": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] }
   },
   "feed": [
-    { "source": "string", "author": "string", "meta": "string", "tone": "Bullish", "headline": "string", "body": "string", "impact": 0, "time": "string" }
+    { "source": "string", "author": "string", "meta": "string", "tone": "Bullish", "headline": "string", "body": "string", "impact": 50, "time": "string" }
   ],
   "voices": [
     { "source": "string", "name": "string", "stance": "Bullish", "reach": "string", "quote": "string", "time": "string" }
@@ -404,9 +447,10 @@ Return this shape exactly:
 
     if (!res.ok) {
       const errText = await res.text();
+      console.error("social-scan openai error:", res.status, errText);
       return NextResponse.json(
-        { error: `OpenAI error: ${errText}` },
-        { status: 500 }
+        fallback(symbol, "Live web scan was unavailable for this request."),
+        { status: 200 }
       );
     }
 
@@ -419,21 +463,33 @@ Return this shape exactly:
         ?.find((c: any) => c?.type === "output_text")?.text;
 
     if (!outputText) {
-      return NextResponse.json(fallback(symbol));
+      return NextResponse.json(
+        fallback(symbol, "No usable model output returned."),
+        { status: 200 }
+      );
     }
 
-    const parsed = JSON.parse(extractJsonObject(outputText)) as SocialScanModelResponse;
+    let parsed: SocialScanModelResponse;
+    try {
+      parsed = JSON.parse(extractFirstJsonObject(outputText)) as SocialScanModelResponse;
+    } catch (err) {
+      console.error("social-scan parse error:", err, outputText);
+      return NextResponse.json(
+        fallback(symbol, "Narrative output could not be parsed cleanly."),
+        { status: 200 }
+      );
+    }
 
-    const rawFeed = Array.isArray(parsed.feed)
-      ? parsed.feed.slice(0, 10).map((item) => ({
-          source: String(item.source || "Source"),
-          author: String(item.author || "Unknown"),
-          meta: String(item.meta || ""),
+    const rawFeed: FeedItem[] = Array.isArray(parsed.feed)
+      ? parsed.feed.slice(0, 12).map((item) => ({
+          source: s(item.source, "Source"),
+          author: s(item.author, "Unknown"),
+          meta: s(item.meta),
           tone: normalizeTone(item.tone),
-          headline: String(item.headline || "Recent item"),
-          body: String(item.body || ""),
-          impact: clampPercent(Number(item.impact ?? 50)),
-          time: String(item.time || "recently"),
+          headline: s(item.headline, "Recent item"),
+          body: s(item.body),
+          impact: clampPercent(item.impact, 50),
+          time: s(item.time, "recently"),
         }))
       : [];
 
@@ -445,14 +501,14 @@ Return this shape exactly:
         time: formatRelativeTime(item.time),
       }));
 
-    const rawVoices = Array.isArray(parsed.voices)
-      ? parsed.voices.slice(0, 10).map((voice) => ({
-          source: String(voice.source || "Source"),
-          name: String(voice.name || "Unknown"),
+    const rawVoices: VoiceItem[] = Array.isArray(parsed.voices)
+      ? parsed.voices.slice(0, 12).map((voice) => ({
+          source: s(voice.source, "Source"),
+          name: s(voice.name, "Unknown"),
           stance: normalizeTone(voice.stance),
-          reach: String(voice.reach || ""),
-          quote: String(voice.quote || ""),
-          time: String(voice.time || "recently"),
+          reach: s(voice.reach),
+          quote: s(voice.quote),
+          time: s(voice.time, "recently"),
         }))
       : [];
 
@@ -464,47 +520,46 @@ Return this shape exactly:
         time: formatRelativeTime(voice.time),
       }));
 
-    const attentionLabel =
-      parsed.attentionLabel && parsed.attentionLabel.trim().length > 0
-        ? parsed.attentionLabel
-        : "Attention stable";
-
-    const attentionTake =
-      parsed.attentionTake && parsed.attentionTake.trim().length > 0
-        ? parsed.attentionTake
-        : "Narriv is still building the attention read for this asset.";
-
     const response: SocialScanResponse = {
       symbol,
       pulseTitle:
-        parsed.pulseTitle && parsed.pulseTitle.includes(symbol)
-          ? parsed.pulseTitle
+        s(parsed.pulseTitle) && s(parsed.pulseTitle).includes(symbol)
+          ? s(parsed.pulseTitle)
           : `${symbol} — Narrative Pulse`,
-      pulseSummary:
-        parsed.pulseSummary ||
-        `Narriv scanned recent public-web discussion around ${symbol}.`,
-      updated: formatRelativeTime(parsed.updated || "recently"),
-      chips: Array.isArray(parsed.chips) ? parsed.chips.slice(0, 6).map(String) : [],
-      verdict: parsed.verdict || "Mixed",
+      pulseSummary: s(
+        parsed.pulseSummary,
+        `Narriv scanned recent public-web discussion around ${symbol}.`
+      ),
+      updated: formatRelativeTime(s(parsed.updated, "recently")),
+      chips: Array.isArray(parsed.chips)
+        ? parsed.chips.map((x) => s(x)).filter(Boolean).slice(0, 6)
+        : [],
+      verdict: s(parsed.verdict, "Mixed"),
       entry: clampEntry(parsed.entry),
       cards: buildCards(parsed.platformBuckets),
       feed,
       voices,
-      velocity: String(parsed.velocity || "—"),
-      percentile: String(parsed.percentile || "—"),
+      velocity: s(parsed.velocity, feed.length > 2 ? "Elevated" : "Stable"),
+      percentile: s(parsed.percentile, feed.length > 2 ? "65th" : "50th"),
       signals24h:
-        typeof parsed.signals24h === "string" && parsed.signals24h.length < 40
-          ? parsed.signals24h
+        s(parsed.signals24h).length > 0 && s(parsed.signals24h).length < 40
+          ? s(parsed.signals24h)
           : feed.length > 0
           ? `${feed.length} recent signals surfaced`
           : "Few recent signals",
-      attentionLabel,
-      attentionTake,
+      attentionLabel: s(parsed.attentionLabel, "Attention stable"),
+      attentionTake: s(
+        parsed.attentionTake,
+        `Recent discussion around ${symbol} is present but not broad enough yet to signal a major shift.`
+      ),
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error("social-scan route error:", error);
-    return NextResponse.json(fallback(symbol));
+    console.error("social-scan unexpected route error:", error);
+    return NextResponse.json(
+      fallback(symbol, "Unexpected route issue — returned safe fallback."),
+      { status: 200 }
+    );
   }
 }
