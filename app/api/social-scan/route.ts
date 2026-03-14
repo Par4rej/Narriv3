@@ -19,16 +19,33 @@ export async function GET(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
-        input: `Search the web and give me one short sentence about recent discussion of the stock ticker ${symbol}. If it is a company stock, treat it as the stock/security, not any unrelated acronym.`,
+        input: `Search the web and summarize recent discussion about the stock ticker ${symbol}.`,
         tools: [{ type: "web_search" }],
         tool_choice: "auto",
+        text: {
+          format: {
+            type: "json_schema",
+            name: "mini_social_scan",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                symbol: { type: "string" },
+                verdict: { type: "string" },
+                summary: { type: "string" }
+              },
+              required: ["symbol", "verdict", "summary"]
+            }
+          }
+        }
       }),
     });
 
     const text = await res.text();
 
     return NextResponse.json({
-      step: "responses_with_web_search_test",
+      step: "responses_with_web_search_and_small_schema",
       status: res.status,
       ok: res.ok,
       body: text,
@@ -36,7 +53,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        step: "responses_with_web_search_test",
+        step: "responses_with_web_search_and_small_schema",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
