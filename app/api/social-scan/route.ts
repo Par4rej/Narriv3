@@ -30,6 +30,7 @@ type VoiceItem = {
   stance: Tone;
   reach: string;
   quote: string;
+  time: string;
 };
 
 type SocialScanModelResponse = {
@@ -52,6 +53,8 @@ type SocialScanModelResponse = {
   velocity: string;
   percentile: string;
   signals24h: string;
+  attentionLabel: string;
+  attentionTake: string;
 };
 
 type PlatformCard = {
@@ -81,6 +84,8 @@ type SocialScanResponse = {
   velocity: string;
   percentile: string;
   signals24h: string;
+  attentionLabel: string;
+  attentionTake: string;
 };
 
 function clampPercent(value: number) {
@@ -216,6 +221,9 @@ function fallback(symbol: string): SocialScanResponse {
     velocity: "1.0x",
     percentile: "50th",
     signals24h: "—",
+    attentionLabel: "Attention stable",
+    attentionTake:
+      "Narriv is still building the attention read for this asset.",
   };
 }
 
@@ -250,7 +258,7 @@ Search the public web for recent, publicly indexed discussion about ${symbol}, i
 - YouTube
 - TikTok / short-form
 
-Important:
+Important constraints:
 - The UI has FIVE FIXED PLATFORM SLOTS ONLY:
   1. x
   2. reddit
@@ -259,22 +267,32 @@ Important:
   5. tiktok
 - Do NOT rename those platforms.
 - Do NOT use outlet names like CNBC, Bloomberg, WSJ, Reuters, etc. as platform names.
-- Outlet names and personalities belong in summaries, tags, feed items, or voices — NOT as platform labels.
-- If one platform has weak or no visible coverage, say so plainly in that platform bucket.
+- Outlet names and personalities belong in summaries, tags, feed items, or voices.
 - Make the content specific to ${symbol}, not generic market commentary.
 
-Return JSON only in the schema provided.
+Recency rules:
+- Feed items should be from roughly the last 24 hours.
+- If you cannot find enough strong items in the last 24 hours, return fewer feed items rather than using stale ones.
+- Voice items should be recent takes, recent summarized theses, or current framing from relevant thought leaders / pundits / outlets.
+- Every voice item MUST include a time field like "2h ago", "today", "14h ago", "this morning", etc.
+- Do not include 2025-era or obviously stale items for a current scan.
 
-Additional rules:
+Attention velocity rules:
+- attentionLabel should be a short, plain-English signal like:
+  - "Attention accelerating"
+  - "Attention broadening"
+  - "Attention cooling"
+  - "Attention concentrated but not broad"
+- attentionTake should explain why it matters in one strong, simple sentence that connects the dots for an investor.
+
+General rules:
 - This is a public-web scan, not native platform API telemetry.
 - Be specific, useful, and honest about uncertainty.
 - Do not invent certainty where coverage is thin.
 - Sentiment splits are directional estimates, not exact truth.
 - "entry" is a 0-100 heuristic where lower is earlier/cleaner and higher is later/crowded.
-- "velocity", "percentile", and "signals24h" should be readable strings, not pseudo-quant precision.
+- "velocity", "percentile", and "signals24h" should be readable strings, not fake scientific precision.
 - Keep pulseSummary to 2-4 sentences.
-- Feed items should be recent, representative public-web items tied to ${symbol}.
-- Voices should be visible names/accounts/outlets surfaced in the scan when possible.
 `.trim();
 
     const schema = {
@@ -438,13 +456,16 @@ Additional rules:
               },
               reach: { type: "string" },
               quote: { type: "string" },
+              time: { type: "string" },
             },
-            required: ["source", "name", "stance", "reach", "quote"],
+            required: ["source", "name", "stance", "reach", "quote", "time"],
           },
         },
         velocity: { type: "string" },
         percentile: { type: "string" },
         signals24h: { type: "string" },
+        attentionLabel: { type: "string" },
+        attentionTake: { type: "string" },
       },
       required: [
         "symbol",
@@ -460,6 +481,8 @@ Additional rules:
         "velocity",
         "percentile",
         "signals24h",
+        "attentionLabel",
+        "attentionTake",
       ],
     };
 
@@ -474,7 +497,7 @@ Additional rules:
         input: prompt,
         tools: [{ type: "web_search" }],
         tool_choice: "auto",
-        max_output_tokens: 2200,
+        max_output_tokens: 2400,
         text: {
           format: {
             type: "json_schema",
@@ -520,11 +543,15 @@ Additional rules:
       verdict: parsed.verdict,
       entry: Math.max(0, Math.min(100, Math.round(parsed.entry ?? 50))),
       cards: buildCards(parsed.platformBuckets),
-      feed: Array.isArray(parsed.feed) ? parsed.feed : [],
-      voices: Array.isArray(parsed.voices) ? parsed.voices : [],
+      feed: Array.isArray(parsed.feed) ? parsed.feed.slice(0, 6) : [],
+      voices: Array.isArray(parsed.voices) ? parsed.voices.slice(0, 6) : [],
       velocity: parsed.velocity || "—",
       percentile: parsed.percentile || "—",
       signals24h: parsed.signals24h || "—",
+      attentionLabel: parsed.attentionLabel || "Attention stable",
+      attentionTake:
+        parsed.attentionTake ||
+        "Narriv is still building the attention read for this asset.",
     };
 
     return NextResponse.json(response);
