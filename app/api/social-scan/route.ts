@@ -102,6 +102,11 @@ type SocialScanResponse = {
   signals24h: string;
   attentionLabel: string;
   attentionTake: string;
+  debug?: {
+    phase: string;
+    parseError?: string;
+    outputPreview?: string;
+  };
 };
 
 function clampPercent(value: number) {
@@ -120,9 +125,7 @@ function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw
   let neutral = clampPercent(bucket?.neutral ?? 25);
 
   const total = bull + bear + neutral;
-  if (total !== 100) {
-    neutral = Math.max(0, 100 - bull - bear);
-  }
+  if (total !== 100) neutral = Math.max(0, 100 - bull - bear);
 
   return {
     volume: bucket?.volume?.trim() || "light coverage",
@@ -131,8 +134,8 @@ function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw
     neutral,
     summary: bucket?.summary?.trim() || "Coverage is currently thin.",
     tags:
-      Array.isArray(bucket?.tags) && bucket!.tags!.length > 0
-        ? bucket!.tags!.slice(0, 5).map(String)
+      Array.isArray(bucket?.tags) && bucket.tags.length > 0
+        ? bucket.tags.slice(0, 5).map(String)
         : ["thin coverage"],
   };
 }
@@ -185,66 +188,79 @@ function buildCards(
   ];
 }
 
+function cleanOutputText(text: string) {
+  return text
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
 function extractJsonObject(text: string) {
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
+  const cleaned = cleanOutputText(text);
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
   if (start === -1 || end === -1 || end <= start) {
     throw new Error("No JSON object found in model output");
   }
-  return text.slice(start, end + 1);
+  return cleaned.slice(start, end + 1);
 }
 
-function fallback(symbol: string, note?: string): SocialScanResponse {
+function fallback(
+  symbol: string,
+  phase: string,
+  parseError?: string,
+  outputPreview?: string
+): SocialScanResponse {
   return {
     symbol,
     pulseTitle: `${symbol} — Narrative Pulse`,
     pulseSummary:
-      note ||
-      `Narriv scanned public-web results for ${symbol}. Coverage is directional, live, and source-backed, but not equivalent to native platform telemetry.`,
+      "Narriv could not complete the full live narrative synthesis for this request, so this section is running in safe fallback mode while we debug it.",
     updated: "just now",
-    chips: ["Public-web scan", "OpenAI synthesis", "Beta narrative layer"],
-    verdict: "Mixed / thin coverage",
+    chips: ["Fallback mode", "Route debug", phase],
+    verdict: "Narrative scan fallback",
     entry: 50,
     cards: buildCards({
       x: {
-        volume: "light coverage",
+        volume: "fallback",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Scanning public-web X results.",
-        tags: ["loading"],
+        summary: "X scan fallback is active.",
+        tags: ["fallback"],
       },
       reddit: {
-        volume: "light coverage",
+        volume: "fallback",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Scanning indexed Reddit results.",
-        tags: ["loading"],
+        summary: "Reddit scan fallback is active.",
+        tags: ["fallback"],
       },
       news: {
-        volume: "light coverage",
+        volume: "fallback",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Scanning news coverage.",
-        tags: ["loading"],
+        summary: "News scan fallback is active.",
+        tags: ["fallback"],
       },
       youtube: {
-        volume: "light coverage",
+        volume: "fallback",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Scanning YouTube creator coverage.",
-        tags: ["loading"],
+        summary: "YouTube scan fallback is active.",
+        tags: ["fallback"],
       },
       tiktok: {
-        volume: "light coverage",
+        volume: "fallback",
         bull: 50,
         bear: 25,
         neutral: 25,
-        summary: "Scanning TikTok / short-form public results.",
-        tags: ["loading"],
+        summary: "TikTok scan fallback is active.",
+        tags: ["fallback"],
       },
     }),
     feed: [],
@@ -252,30 +268,27 @@ function fallback(symbol: string, note?: string): SocialScanResponse {
     velocity: "—",
     percentile: "—",
     signals24h: "—",
-    attentionLabel: "Attention stable",
-    attentionTake:
-      "Narriv is still building the attention read for this asset.",
+    attentionLabel: "Attention read unavailable",
+    attentionTake: "The route hit a processing issue after the OpenAI call and returned safe fallback data instead of breaking.",
+    debug: {
+      phase,
+      parseError,
+      outputPreview,
+    },
   };
 }
 
 export async function GET(req: NextRequest) {
+  const symbol = (req.nextUrl.searchParams.get("asset") || "UNKNOWN")
+    .trim()
+    .toUpperCase();
+
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Missing OPENAI_API_KEY" },
-        { status: 500 }
-      );
-    }
-
-    const symbol = (req.nextUrl.searchParams.get("asset") || "")
-      .trim()
-      .toUpperCase();
-
-    if (!symbol) {
-      return NextResponse.json(
-        { error: "Missing asset symbol" },
-        { status: 400 }
+        fallback(symbol, "missing_api_key", "Missing OPENAI_API_KEY"),
+        { status: 200 }
       );
     }
 
@@ -292,23 +305,18 @@ Search the public web for recent, publicly indexed discussion about ${symbol}, i
 Rules:
 - Treat ${symbol} as the stock/asset/security, not an unrelated acronym.
 - Return JSON only. No markdown. No commentary outside JSON.
-- The UI has FIVE FIXED PLATFORM SLOTS ONLY:
+- Use EXACT platform bucket keys:
   - x
   - reddit
   - news
   - youtube
   - tiktok
-- Do NOT rename those platform keys.
-- Outlet names like CNBC, Bloomberg, WSJ, Reuters belong in summaries/tags/feed/voices, not as platform names.
-- Feed items should be recent, ideally within the last 24 hours. If not enough exist, return fewer items.
-- Voice items should be recent takes or current summarized theses from visible thought leaders, pundits, or outlets.
-- Every voice item must include a time field.
-- attentionLabel must be short and plain English.
-- attentionTake must explain the signal in one simple, useful sentence.
-- Sentiment splits are directional estimates, not exact truth.
+- Feed items should be recent, ideally within the last 24 hours. If not enough exist, return fewer.
+- Voices should be recent and include a time field.
+- attentionLabel should be short and plain English.
+- attentionTake should be one simple sentence.
 
-Return exactly this shape:
-
+Return this shape exactly:
 {
   "symbol": "string",
   "pulseTitle": "string",
@@ -318,68 +326,17 @@ Return exactly this shape:
   "verdict": "string",
   "entry": 0,
   "platformBuckets": {
-    "x": {
-      "volume": "string",
-      "bull": 0,
-      "bear": 0,
-      "neutral": 0,
-      "summary": "string",
-      "tags": ["string"]
-    },
-    "reddit": {
-      "volume": "string",
-      "bull": 0,
-      "bear": 0,
-      "neutral": 0,
-      "summary": "string",
-      "tags": ["string"]
-    },
-    "news": {
-      "volume": "string",
-      "bull": 0,
-      "bear": 0,
-      "neutral": 0,
-      "summary": "string",
-      "tags": ["string"]
-    },
-    "youtube": {
-      "volume": "string",
-      "bull": 0,
-      "bear": 0,
-      "neutral": 0,
-      "summary": "string",
-      "tags": ["string"]
-    },
-    "tiktok": {
-      "volume": "string",
-      "bull": 0,
-      "bear": 0,
-      "neutral": 0,
-      "summary": "string",
-      "tags": ["string"]
-    }
+    "x": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
+    "reddit": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
+    "news": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
+    "youtube": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] },
+    "tiktok": { "volume": "string", "bull": 0, "bear": 0, "neutral": 0, "summary": "string", "tags": ["string"] }
   },
   "feed": [
-    {
-      "source": "string",
-      "author": "string",
-      "meta": "string",
-      "tone": "Bullish | Mixed | Bearish",
-      "headline": "string",
-      "body": "string",
-      "impact": 0,
-      "time": "string"
-    }
+    { "source": "string", "author": "string", "meta": "string", "tone": "Bullish", "headline": "string", "body": "string", "impact": 0, "time": "string" }
   ],
   "voices": [
-    {
-      "source": "string",
-      "name": "string",
-      "stance": "Bullish | Mixed | Bearish",
-      "reach": "string",
-      "quote": "string",
-      "time": "string"
-    }
+    { "source": "string", "name": "string", "stance": "Bullish", "reach": "string", "quote": "string", "time": "string" }
   ],
   "velocity": "string",
   "percentile": "string",
@@ -407,8 +364,8 @@ Return exactly this shape:
     if (!res.ok) {
       const errText = await res.text();
       return NextResponse.json(
-        { error: `OpenAI error: ${errText}` },
-        { status: 500 }
+        fallback(symbol, "openai_http_error", errText),
+        { status: 200 }
       );
     }
 
@@ -421,12 +378,26 @@ Return exactly this shape:
         ?.find((c: any) => c?.type === "output_text")?.text;
 
     if (!outputText) {
-      return NextResponse.json(fallback(symbol));
+      return NextResponse.json(
+        fallback(symbol, "missing_output_text"),
+        { status: 200 }
+      );
     }
 
-    const parsed = JSON.parse(
-      extractJsonObject(outputText)
-    ) as SocialScanModelResponse;
+    let parsed: SocialScanModelResponse;
+    try {
+      parsed = JSON.parse(extractJsonObject(outputText)) as SocialScanModelResponse;
+    } catch (parseErr) {
+      return NextResponse.json(
+        fallback(
+          symbol,
+          "json_parse_failed",
+          parseErr instanceof Error ? parseErr.message : "Unknown parse error",
+          outputText.slice(0, 800)
+        ),
+        { status: 200 }
+      );
+    }
 
     const response: SocialScanResponse = {
       symbol,
@@ -472,14 +443,20 @@ Return exactly this shape:
         parsed.attentionTake ||
           "Narriv is still building the attention read for this asset."
       ),
+      debug: {
+        phase: "success",
+      },
     };
 
-    return NextResponse.json(response);
+    return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error("social-scan route error:", error);
-    const symbol = (req.nextUrl.searchParams.get("asset") || "UNKNOWN")
-      .trim()
-      .toUpperCase();
-    return NextResponse.json(fallback(symbol));
+    return NextResponse.json(
+      fallback(
+        symbol,
+        "unexpected_route_error",
+        error instanceof Error ? error.message : "Unknown error"
+      ),
+      { status: 200 }
+    );
   }
 }
