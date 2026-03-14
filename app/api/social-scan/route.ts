@@ -8,7 +8,10 @@ export async function GET(req: NextRequest) {
     const symbol = (req.nextUrl.searchParams.get("asset") || "NVDA").trim().toUpperCase();
 
     if (!apiKey) {
-      return NextResponse.json({ step: "env", error: "Missing OPENAI_API_KEY" }, { status: 500 });
+      return NextResponse.json(
+        { step: "env", error: "Missing OPENAI_API_KEY" },
+        { status: 500 }
+      );
     }
 
     const res = await fetch("https://api.openai.com/v1/responses", {
@@ -19,7 +22,7 @@ export async function GET(req: NextRequest) {
       },
       body: JSON.stringify({
         model: "gpt-4.1-mini",
-        input: `Search the web and summarize recent discussion about the stock ticker ${symbol}.`,
+        input: `Search the web and summarize recent discussion about the stock ticker ${symbol}. Treat it as the stock/security, not an unrelated acronym.`,
         tools: [{ type: "web_search" }],
         tool_choice: "auto",
         text: {
