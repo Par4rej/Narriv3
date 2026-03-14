@@ -58,7 +58,7 @@ function fallback(symbol: string): SocialScanResponse {
       `Narriv scanned public-web results for ${symbol}. Coverage is directional, live, and source-backed, but not equivalent to native platform telemetry.`,
     updated: "just now",
     chips: ["Public-web scan", "OpenAI synthesis", "Beta narrative layer"],
-    verdict: "Mixed / loading",
+    verdict: "Mixed / thin coverage",
     entry: 50,
     cards: [
       {
@@ -140,9 +140,16 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const symbol = (req.nextUrl.searchParams.get("asset") || "NVDA")
+    const symbol = (req.nextUrl.searchParams.get("asset") || "")
       .trim()
       .toUpperCase();
+
+    if (!symbol) {
+      return NextResponse.json(
+        { error: "Missing asset symbol" },
+        { status: 400 }
+      );
+    }
 
     const prompt = `
 You are generating a live public-web narrative view for the asset ${symbol}.
@@ -161,9 +168,14 @@ Rules:
 - Be specific, useful, and honest about uncertainty.
 - Do not invent certainty where coverage is thin.
 - Keep the page investor-grade and readable.
+- Make all fields react specifically to ${symbol}, not generic market commentary.
+- If coverage is thin on one platform, say so plainly and reflect that in the volume and sentiment split.
 - Sentiment splits should be directional estimates, not fake precision.
 - "entry" is a 0-100 heuristic where lower is earlier/cleaner and higher is later/crowded.
 - "velocity", "percentile", and "signals24h" should be readable strings, not deep quant claims.
+- Keep pulseSummary to 2-4 sentences.
+- Feed items should be recent, representative public-web items tied to ${symbol}.
+- Voices should be actual visible names/accounts/outlets surfaced in the scan when possible.
 - Use present-tense, concise writing.
 `.trim();
 
@@ -223,7 +235,7 @@ Rules:
         },
         feed: {
           type: "array",
-          minItems: 2,
+          minItems: 0,
           maxItems: 6,
           items: {
             type: "object",
@@ -255,7 +267,7 @@ Rules:
         },
         voices: {
           type: "array",
-          minItems: 2,
+          minItems: 0,
           maxItems: 6,
           items: {
             type: "object",
@@ -305,6 +317,7 @@ Rules:
         input: prompt,
         tools: [{ type: "web_search" }],
         tool_choice: "auto",
+        max_output_tokens: 2200,
         text: {
           format: {
             type: "json_schema",
@@ -337,10 +350,16 @@ Rules:
     }
 
     const parsed = JSON.parse(outputText) as SocialScanResponse;
+
+    parsed.symbol = symbol;
+    if (!parsed.pulseTitle?.includes(symbol)) {
+      parsed.pulseTitle = `${symbol} — Narrative Pulse`;
+    }
+
     return NextResponse.json(parsed);
   } catch (error) {
     console.error("social-scan route error:", error);
-    const symbol = (req.nextUrl.searchParams.get("asset") || "NVDA")
+    const symbol = (req.nextUrl.searchParams.get("asset") || "UNKNOWN")
       .trim()
       .toUpperCase();
     return NextResponse.json(fallback(symbol));
