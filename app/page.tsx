@@ -8,6 +8,7 @@ import {
   Waves,
   Users,
   ChevronRight,
+  Zap,
 } from "lucide-react";
 
 type SearchResult = {
@@ -57,6 +58,7 @@ type VoiceItem = {
   stance: "Bullish" | "Mixed" | "Bearish";
   reach: string;
   quote: string;
+  time: string;
 };
 
 type SocialScanResponse = {
@@ -73,6 +75,8 @@ type SocialScanResponse = {
   velocity: string;
   percentile: string;
   signals24h: string;
+  attentionLabel: string;
+  attentionTake: string;
 };
 
 const emptyMarket: MarketSnapshot = {
@@ -162,6 +166,8 @@ const loadingSocial: SocialScanResponse = {
   velocity: "—",
   percentile: "—",
   signals24h: "—",
+  attentionLabel: "Attention stable",
+  attentionTake: "Narriv is still building the attention read for this asset.",
 };
 
 function perfTone(value: string) {
@@ -315,7 +321,7 @@ export default function Page() {
               </div>
               <h1 className="mt-4 max-w-4xl text-[2.35rem] font-semibold leading-[1.02] tracking-tight sm:mt-5 sm:text-7xl">
                 Should you bet on{" "}
-                <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent animate-pulse">
+                <span className="bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 bg-clip-text text-transparent">
                   this story?
                 </span>
               </h1>
@@ -394,8 +400,7 @@ export default function Page() {
                           ))
                         ) : (
                           <div className="px-4 py-3 text-sm text-white/52">
-                            No suggestions yet. Press enter to try the symbol
-                            directly.
+                            No suggestions yet. Press enter to try the symbol directly.
                           </div>
                         )}
                       </div>
@@ -415,7 +420,7 @@ export default function Page() {
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {["EQIX", "TSLA", "AAPL", "MSTR", "BTC", "MSFT"].map((pick) => (
+                  {["NVDA", "TSLA", "AAPL", "MSTR", "BTC", "MSFT"].map((pick) => (
                     <button
                       key={pick}
                       onClick={() => pickAsset(pick)}
@@ -687,7 +692,7 @@ export default function Page() {
                       Live Signal Feed
                     </div>
                     <div className="mt-1 text-sm text-white/56">
-                      Representative items shaping the visible narrative around{" "}
+                      Only recent public-web items shaping the visible narrative around{" "}
                       {social?.symbol || symbol}
                     </div>
                   </div>
@@ -742,7 +747,7 @@ export default function Page() {
 
                   {!socialLoading && social && social.feed.length === 0 ? (
                     <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5 text-sm text-white/60">
-                      No strong feed items surfaced from the current public-web scan.
+                      No strong recent signal feed items surfaced in the last 24 hours.
                     </div>
                   ) : null}
                 </div>
@@ -750,14 +755,21 @@ export default function Page() {
 
               <div className="space-y-6">
                 <div className="rounded-[36px] border border-white/10 bg-[linear-gradient(180deg,rgba(10,13,21,0.96),rgba(15,19,32,0.98))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-8">
-                  <div className="text-2xl font-semibold tracking-tight">
+                  <div className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+                    <Zap className="h-6 w-6 text-emerald-300" />
                     Attention Velocity
                   </div>
                   <div className="mt-1 text-sm text-white/56">
-                    How quickly this story is broadening right now
+                    A simple read on whether attention is accelerating, broadening, or cooling right now
                   </div>
                   <div className="mt-5 rounded-[30px] border border-emerald-400/15 bg-[linear-gradient(180deg,rgba(34,255,170,0.08),rgba(34,255,170,0.03))] p-5">
-                    <div className="flex h-32 items-end gap-2">
+                    <div className="text-sm uppercase tracking-[0.16em] text-emerald-300">
+                      {social?.attentionLabel || "Attention stable"}
+                    </div>
+                    <div className="mt-3 text-base leading-8 text-white/82">
+                      {social?.attentionTake || "Narriv is still building the attention read for this asset."}
+                    </div>
+                    <div className="mt-5 flex h-24 items-end gap-2">
                       {[28, 32, 31, 36, 40, 38, 46, 44, 52, 57, 55, 63].map(
                         (h, idx) => (
                           <div
@@ -780,14 +792,14 @@ export default function Page() {
                       <div className="text-2xl font-semibold text-amber-300">
                         {social?.percentile || "—"}
                       </div>
-                      <div className="mt-1 text-xs text-white/46">percentile</div>
+                      <div className="mt-1 text-xs text-white/46">attention rank</div>
                     </div>
                     <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-4">
                       <div className="text-2xl font-semibold text-white">
                         {social?.signals24h || "—"}
                       </div>
                       <div className="mt-1 text-xs text-white/46">
-                        signals / 24h
+                        recent signals
                       </div>
                     </div>
                   </div>
@@ -799,7 +811,7 @@ export default function Page() {
                     Key Opinion Leaders
                   </div>
                   <div className="mt-1 text-sm text-white/56">
-                    Who appears to be shaping the visible framing around{" "}
+                    Recent takes and current framing from visible thought leaders, pundits, and outlets around{" "}
                     {social?.symbol || symbol}
                   </div>
                   <div className="mt-5 space-y-3">
@@ -820,12 +832,17 @@ export default function Page() {
                               {voice.reach}
                             </div>
                           </div>
-                          <div
-                            className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
-                              voice.stance
-                            )}`}
-                          >
-                            {voice.stance}
+                          <div className="text-right">
+                            <div
+                              className={`rounded-full border px-2.5 py-1 text-xs ${toneClasses(
+                                voice.stance
+                              )}`}
+                            >
+                              {voice.stance}
+                            </div>
+                            <div className="mt-2 text-[11px] text-white/45">
+                              {voice.time}
+                            </div>
                           </div>
                         </div>
                         <div className="mt-4 text-sm leading-7 text-white/82">
@@ -836,7 +853,7 @@ export default function Page() {
 
                     {!socialLoading && social && social.voices.length === 0 ? (
                       <div className="rounded-[26px] border border-white/10 bg-white/[0.045] p-5 text-sm text-white/60">
-                        No strong KOL set surfaced from the current public-web scan.
+                        No strong recent KOL references surfaced in the current public-web scan.
                       </div>
                     ) : null}
                   </div>
