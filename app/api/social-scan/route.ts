@@ -430,18 +430,17 @@ Return this shape exactly:
 }
 `.trim();
 
-    const res = await fetch("https://api.openai.com/v1/responses", {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4.1-mini",
-        input: prompt,
-        tools: [{ type: "web_search" }],
-        tool_choice: "auto",
-        max_output_tokens: 2200,
+        model: "gpt-4o-mini",
+messages: [{ role: "user", content: prompt }],
+web_search_options: { search_context_size: "medium" },
+max_tokens: 2200,
       }),
     });
 
@@ -456,11 +455,7 @@ Return this shape exactly:
 
     const data = await res.json();
 
-    const outputText =
-      data?.output_text ||
-      data?.output
-        ?.flatMap((item: any) => item?.content || [])
-        ?.find((c: any) => c?.type === "output_text")?.text;
+    const outputText = data?.choices?.[0]?.message?.content;
 
     if (!outputText) {
       return NextResponse.json(
