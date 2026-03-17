@@ -2,183 +2,186 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
-  }).format(value || 0);
+type FinnhubQuote = {
+  c?: number; // current
+  d?: number; // change
+  dp?: number; // percent change
+  h?: number;
+  l?: number;
+  o?: number;
+  pc?: number; // previous close
+  t?: number;
+};
+
+type FinnhubProfile = {
+  ticker?: string;
+  name?: string;
+  finnhubIndustry?: string;
+};
+
+type CandleResponse = {
+  c?: number[];
+  s?: string;
+};
+
+function formatPrice(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return value >= 1000
+    ? `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+    : `$${value.toFixed(2)}`;
 }
 
-function formatPct(value: number) {
-  return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
+function formatPct(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(1)}%`;
 }
 
-function pctFromPrices(start: number | null, end: number | null) {
-  if (!start || !end || start === 0) return "—";
-  return formatPct(((end - start) / start) * 100);
-}
-
-function unixDaysAgo(days: number) {
-  return Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
-}
-
-function startOfYearUnix() {
-  const now = new Date();
-  return Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000);
-}
-
-function normalizeAsset(inputRaw: string) {
-  const input = inputRaw.trim().toUpperCase();
-
-  const cryptoMap: Record<
-    string,
-    { symbol: string; displayName: string; finnhubSymbol: string; type: string; isCrypto: boolean }
-  > = {
-    BTC: {
-      symbol: "BTC",
-      displayName: "Bitcoin",
-      finnhubSymbol: "BINANCE:BTCUSDT",
-      type: "Crypto",
-      isCrypto: true,
-    },
-    ETH: {
-      symbol: "ETH",
-      displayName: "Ethereum",
-      finnhubSymbol: "BINANCE:ETHUSDT",
-      type: "Crypto",
-      isCrypto: true,
-    },
-    SOL: {
-      symbol: "SOL",
-      displayName: "Solana",
-      finnhubSymbol: "BINANCE:SOLUSDT",
-      type: "Crypto",
-      isCrypto: true,
-    },
-    DOGE: {
-      symbol: "DOGE",
-      displayName: "Dogecoin",
-      finnhubSymbol: "BINANCE:DOGEUSDT",
-      type: "Crypto",
-      isCrypto: true,
-    },
-  };
-
-  if (cryptoMap[input]) return cryptoMap[input];
-
-  return {
-    symbol: input || "NVDA",
-    displayName: input || "NVDA",
-    finnhubSymbol: input || "NVDA",
-    type: "Equity",
-    isCrypto: false,
-  };
+function calcPct(current?: number, prior?: number) {
+  if (
+    typeof current !== "number" ||
+    !Number.isFinite(current) ||
+    typeof prior !== "number" ||
+    !Number.isFinite(prior) ||
+    prior === 0
+  ) {
+    return undefined;
+  }
+  return ((current - prior) / prior) * 100;
 }
 
 async function fetchJson(url: string) {
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Request failed (${res.status}): ${text}`);
+    throw new Error(text || `Request failed: ${res.status}`);
   }
   return res.json();
 }
 
-function firstClose(candles: any): number | null {
-  if (!candles || candles.s !== "ok" || !Array.isArray(candles.c) || candles.c.length === 0) {
-    return null;
-  }
-  return candles.c[0];
+function unixDaysAgo(days: number) {
+  return Math.floor(Date.now() / 1000) - days * 24 * 60 * 60;
 }
 
-async function fetchCandles(
-  symbol: string,
-  from: number,
-  to: number,
-  token: string,
-  isCrypto: boolean
-) {
-  const endpoint = isCrypto ? "crypto/candle" : "stock/candle";
-  return fetchJson(
-    `https://finnhub.io/api/v1/${endpoint}?symbol=${encodeURIComponent(
-      symbol
-    )}&resolution=D&from=${from}&to=${to}&token=${token}`
-  );
+function startOfYearUnix() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  return Math.floor(start.getTime() / 1000);
+}
+
+function latestClose(data: CandleResponse) {
+  if (data?.s !== "ok" || !Array.isArray(data?.c) || data.c.length === 0) {
+    return undefined;
+  }
+  return data.c[data.c.length - 1];
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const finnhubKey = process.env.FINNHUB_API_KEY;
-
-    if (!finnhubKey) {
+    const apiKey = process.env.FINNHUB_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
         { error: "Missing FINNHUB_API_KEY" },
         { status: 500 }
       );
     }
 
-    const rawAsset = req.nextUrl.searchParams.get("asset") ?? "NVDA";
-    const asset = normalizeAsset(rawAsset);
+    const asset = (req.nextUrl.searchParams.get("asset") || "")
+      .trim()
+      .toUpperCase();
 
-    const quote = await fetchJson(
-      `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
-        asset.finnhubSymbol
-      )}&token=${finnhubKey}`
-    );
-
-    let name = asset.displayName;
-    let type = asset.type;
-
-    if (!asset.isCrypto) {
-      try {
-        const profile = await fetchJson(
-          `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(
-            asset.finnhubSymbol
-          )}&token=${finnhubKey}`
-        );
-        if (profile?.name) name = profile.name;
-      } catch {
-        // keep fallback
-      }
+    if (!asset) {
+      return NextResponse.json(
+        { error: "Missing asset symbol" },
+        { status: 400 }
+      );
     }
+
+    const base = "https://finnhub.io/api/v1";
+
+    const quoteUrl = `${base}/quote?symbol=${encodeURIComponent(asset)}&token=${apiKey}`;
+    const profileUrl = `${base}/stock/profile2?symbol=${encodeURIComponent(asset)}&token=${apiKey}`;
 
     const nowUnix = Math.floor(Date.now() / 1000);
 
-    const [weekCandles, monthCandles, ytdCandles] = await Promise.all([
-      fetchCandles(asset.finnhubSymbol, unixDaysAgo(10), nowUnix, finnhubKey, asset.isCrypto),
-      fetchCandles(asset.finnhubSymbol, unixDaysAgo(40), nowUnix, finnhubKey, asset.isCrypto),
-      fetchCandles(asset.finnhubSymbol, startOfYearUnix(), nowUnix, finnhubKey, asset.isCrypto),
-    ]);
+    const oneWeekUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
+      asset
+    )}&resolution=D&from=${unixDaysAgo(10)}&to=${nowUnix}&token=${apiKey}`;
 
-    const currentPrice =
-      typeof quote?.c === "number" && quote.c > 0 ? quote.c : 0;
-    const prevClose =
-      typeof quote?.pc === "number" && quote.pc > 0 ? quote.pc : currentPrice;
+    const oneMonthUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
+      asset
+    )}&resolution=D&from=${unixDaysAgo(40)}&to=${nowUnix}&token=${apiKey}`;
 
-    const dp =
-      typeof quote?.dp === "number"
-        ? quote.dp
-        : prevClose
-        ? ((currentPrice - prevClose) / prevClose) * 100
-        : 0;
+    const ytdUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
+      asset
+    )}&resolution=D&from=${startOfYearUnix()}&to=${nowUnix}&token=${apiKey}`;
 
-    return NextResponse.json({
-      symbol: asset.symbol,
-      name,
-      type,
-      price: currentPrice ? formatUsd(currentPrice) : "—",
-      change1D: currentPrice ? formatPct(dp) : "—",
-      change1W: pctFromPrices(firstClose(weekCandles), currentPrice),
-      change1M: pctFromPrices(firstClose(monthCandles), currentPrice),
-      changeYTD: pctFromPrices(firstClose(ytdCandles), currentPrice),
-    });
+    const [quote, profile, weekCandles, monthCandles, ytdCandles] =
+      await Promise.all([
+        fetchJson(quoteUrl) as Promise<FinnhubQuote>,
+        fetchJson(profileUrl).catch(() => ({})) as Promise<FinnhubProfile>,
+        fetchJson(oneWeekUrl).catch(() => ({})) as Promise<CandleResponse>,
+        fetchJson(oneMonthUrl).catch(() => ({})) as Promise<CandleResponse>,
+        fetchJson(ytdUrl).catch(() => ({})) as Promise<CandleResponse>,
+      ]);
+
+    if (
+      !quote ||
+      typeof quote.c !== "number" ||
+      !Number.isFinite(quote.c) ||
+      quote.c === 0
+    ) {
+      return NextResponse.json(
+        { error: `No market quote returned for ${asset}` },
+        { status: 404 }
+      );
+    }
+
+    const current = quote.c;
+    const previousClose = quote.pc;
+
+    const weekBase =
+      Array.isArray(weekCandles?.c) && weekCandles.c.length > 0
+        ? weekCandles.c[0]
+        : undefined;
+
+    const monthBase =
+      Array.isArray(monthCandles?.c) && monthCandles.c.length > 0
+        ? monthCandles.c[0]
+        : undefined;
+
+    const ytdBase =
+      Array.isArray(ytdCandles?.c) && ytdCandles.c.length > 0
+        ? ytdCandles.c[0]
+        : undefined;
+
+    const response = {
+      symbol: asset,
+      name: profile?.name || asset,
+      type: profile?.finnhubIndustry || "Asset",
+      price: formatPrice(current),
+      change1D:
+        typeof quote.dp === "number" && Number.isFinite(quote.dp)
+          ? formatPct(quote.dp)
+          : formatPct(calcPct(current, previousClose)),
+      change1W: formatPct(calcPct(current, weekBase)),
+      change1M: formatPct(calcPct(current, monthBase)),
+      changeYTD: formatPct(calcPct(current, ytdBase)),
+      debug: {
+        current,
+        previousClose,
+        weekClose: latestClose(weekCandles),
+        monthClose: latestClose(monthCandles),
+        ytdClose: latestClose(ytdCandles),
+      },
+    };
+
+    return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error("market route error:", error);
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to load market snapshot",
+          error instanceof Error ? error.message : "Unknown market route error",
       },
       { status: 500 }
     );
