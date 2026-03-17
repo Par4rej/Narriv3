@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 type FinnhubQuote = {
-  c?: number; // current
-  d?: number; // change
-  dp?: number; // percent change
+  c?: number;
+  d?: number;
+  dp?: number;
   h?: number;
   l?: number;
   o?: number;
-  pc?: number; // previous close
+  pc?: number;
   t?: number;
 };
 
@@ -21,6 +21,7 @@ type FinnhubProfile = {
 
 type CandleResponse = {
   c?: number[];
+  t?: number[];
   s?: string;
 };
 
@@ -69,11 +70,11 @@ function startOfYearUnix() {
   return Math.floor(start.getTime() / 1000);
 }
 
-function latestClose(data: CandleResponse) {
+function firstClose(data: CandleResponse) {
   if (data?.s !== "ok" || !Array.isArray(data?.c) || data.c.length === 0) {
     return undefined;
   }
-  return data.c[data.c.length - 1];
+  return data.c[0];
 }
 
 export async function GET(req: NextRequest) {
@@ -98,30 +99,20 @@ export async function GET(req: NextRequest) {
     }
 
     const base = "https://finnhub.io/api/v1";
+    const nowUnix = Math.floor(Date.now() / 1000);
 
     const quoteUrl = `${base}/quote?symbol=${encodeURIComponent(asset)}&token=${apiKey}`;
     const profileUrl = `${base}/stock/profile2?symbol=${encodeURIComponent(asset)}&token=${apiKey}`;
-
-    const nowUnix = Math.floor(Date.now() / 1000);
-
-    const oneWeekUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
-      asset
-    )}&resolution=D&from=${unixDaysAgo(10)}&to=${nowUnix}&token=${apiKey}`;
-
-    const oneMonthUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
-      asset
-    )}&resolution=D&from=${unixDaysAgo(40)}&to=${nowUnix}&token=${apiKey}`;
-
-    const ytdUrl = `${base}/stock/candle?symbol=${encodeURIComponent(
-      asset
-    )}&resolution=D&from=${startOfYearUnix()}&to=${nowUnix}&token=${apiKey}`;
+    const weekUrl = `${base}/stock/candle?symbol=${encodeURIComponent(asset)}&resolution=D&from=${unixDaysAgo(10)}&to=${nowUnix}&token=${apiKey}`;
+    const monthUrl = `${base}/stock/candle?symbol=${encodeURIComponent(asset)}&resolution=D&from=${unixDaysAgo(40)}&to=${nowUnix}&token=${apiKey}`;
+    const ytdUrl = `${base}/stock/candle?symbol=${encodeURIComponent(asset)}&resolution=D&from=${startOfYearUnix()}&to=${nowUnix}&token=${apiKey}`;
 
     const [quote, profile, weekCandles, monthCandles, ytdCandles] =
       await Promise.all([
         fetchJson(quoteUrl) as Promise<FinnhubQuote>,
         fetchJson(profileUrl).catch(() => ({})) as Promise<FinnhubProfile>,
-        fetchJson(oneWeekUrl).catch(() => ({})) as Promise<CandleResponse>,
-        fetchJson(oneMonthUrl).catch(() => ({})) as Promise<CandleResponse>,
+        fetchJson(weekUrl).catch(() => ({})) as Promise<CandleResponse>,
+        fetchJson(monthUrl).catch(() => ({})) as Promise<CandleResponse>,
         fetchJson(ytdUrl).catch(() => ({})) as Promise<CandleResponse>,
       ]);
 
@@ -138,23 +129,6 @@ export async function GET(req: NextRequest) {
     }
 
     const current = quote.c;
-    const previousClose = quote.pc;
-
-    const weekBase =
-      Array.isArray(weekCandles?.c) && weekCandles.c.length > 0
-        ? weekCandles.c[0]
-        : undefined;
-
-    const monthBase =
-      Array.isArray(monthCandles?.c) && monthCandles.c.length > 0
-        ? monthCandles.c[0]
-        : undefined;
-
-    const ytdBase =
-      Array.isArray(ytdCandles?.c) && ytdCandles.c.length > 0
-        ? ytdCandles.c[0]
-        : undefined;
-
     const response = {
       symbol: asset,
       name: profile?.name || asset,
@@ -163,17 +137,10 @@ export async function GET(req: NextRequest) {
       change1D:
         typeof quote.dp === "number" && Number.isFinite(quote.dp)
           ? formatPct(quote.dp)
-          : formatPct(calcPct(current, previousClose)),
-      change1W: formatPct(calcPct(current, weekBase)),
-      change1M: formatPct(calcPct(current, monthBase)),
-      changeYTD: formatPct(calcPct(current, ytdBase)),
-      debug: {
-        current,
-        previousClose,
-        weekClose: latestClose(weekCandles),
-        monthClose: latestClose(monthCandles),
-        ytdClose: latestClose(ytdCandles),
-      },
+          : formatPct(calcPct(current, quote.pc)),
+      change1W: formatPct(calcPct(current, firstClose(weekCandles))),
+      change1M: formatPct(calcPct(current, firstClose(monthCandles))),
+      changeYTD: formatPct(calcPct(current, firstClose(ytdCandles))),
     };
 
     return NextResponse.json(response, { status: 200 });
