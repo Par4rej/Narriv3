@@ -5,63 +5,6 @@ export const dynamic = "force-dynamic";
 type Tone = "Bullish" | "Mixed" | "Bearish";
 
 type PlatformBucketRaw = {
-  volume?: string;
-  bull?: number;
-  bear?: number;
-  neutral?: number;
-  summary?: string;
-  tags?: string[];
-};
-
-type FeedItemRaw = {
-  source?: string;
-  author?: string;
-  meta?: string;
-  tone?: Tone | string;
-  headline?: string;
-  body?: string;
-  impact?: number;
-  time?: string;
-};
-
-type VoiceItemRaw = {
-  source?: string;
-  name?: string;
-  stance?: Tone | string;
-  reach?: string;
-  quote?: string;
-  time?: string;
-};
-
-type SocialScanModelResponse = {
-  symbol?: string;
-  pulseTitle?: string;
-  pulseSummary?: string;
-  updated?: string;
-  chips?: string[];
-  verdict?: string;
-  entry?: number;
-  platformBuckets?: {
-    x?: PlatformBucketRaw;
-    reddit?: PlatformBucketRaw;
-    news?: PlatformBucketRaw;
-    youtube?: PlatformBucketRaw;
-    tiktok?: PlatformBucketRaw;
-  };
-  feed?: FeedItemRaw[];
-  voices?: VoiceItemRaw[];
-  velocity?: string;
-  percentile?: string;
-  signals24h?: string;
-  attentionLabel?: string;
-  attentionTake?: string;
-};
-
-type PlatformCard = {
-  platform: string;
-  icon: string;
-  accent: string;
-  soft: string;
   volume: string;
   bull: number;
   bear: number;
@@ -88,6 +31,43 @@ type VoiceItem = {
   reach: string;
   quote: string;
   time: string;
+};
+
+type SocialScanModelResponse = {
+  symbol: string;
+  pulseTitle: string;
+  pulseSummary: string;
+  updated: string;
+  chips: string[];
+  verdict: string;
+  entry: number;
+  platformBuckets: {
+    x: PlatformBucketRaw;
+    reddit: PlatformBucketRaw;
+    news: PlatformBucketRaw;
+    youtube: PlatformBucketRaw;
+    tiktok: PlatformBucketRaw;
+  };
+  feed: FeedItem[];
+  voices: VoiceItem[];
+  velocity: string;
+  percentile: string;
+  signals24h: string;
+  attentionLabel: string;
+  attentionTake: string;
+};
+
+type PlatformCard = {
+  platform: string;
+  icon: string;
+  accent: string;
+  soft: string;
+  volume: string;
+  bull: number;
+  bear: number;
+  neutral: number;
+  summary: string;
+  tags: string[];
 };
 
 type SocialScanResponse = {
@@ -127,47 +107,6 @@ function clampEntry(value: unknown) {
 function normalizeTone(value: unknown): Tone {
   if (value === "Bullish" || value === "Bearish" || value === "Mixed") return value;
   return "Mixed";
-}
-
-function normalizeBucket(bucket?: PlatformBucketRaw): Required<PlatformBucketRaw> {
-  const bull = clampPercent(bucket?.bull, 50);
-  const bear = clampPercent(bucket?.bear, 25);
-  let neutral = clampPercent(bucket?.neutral, 25);
-
-  const total = bull + bear + neutral;
-  if (total !== 100) {
-    neutral = Math.max(0, 100 - bull - bear);
-  }
-
-  return {
-    volume: s(bucket?.volume, "light coverage"),
-    bull,
-    bear,
-    neutral,
-    summary: s(bucket?.summary, "Coverage is currently thin."),
-    tags:
-      Array.isArray(bucket?.tags) && bucket.tags.length > 0
-        ? bucket.tags.slice(0, 5).map((x) => s(x)).filter(Boolean)
-        : ["thin coverage"],
-  };
-}
-
-function buildCards(
-  buckets?: SocialScanModelResponse["platformBuckets"]
-): PlatformCard[] {
-  const x = normalizeBucket(buckets?.x);
-  const reddit = normalizeBucket(buckets?.reddit);
-  const news = normalizeBucket(buckets?.news);
-  const youtube = normalizeBucket(buckets?.youtube);
-  const tiktok = normalizeBucket(buckets?.tiktok);
-
-  return [
-    { platform: "Twitter / X", icon: "X", accent: "#1DA1F2", soft: "rgba(29,161,242,0.12)", ...x },
-    { platform: "Reddit", icon: "R", accent: "#FF5700", soft: "rgba(255,87,0,0.12)", ...reddit },
-    { platform: "News", icon: "N", accent: "#5E8AFF", soft: "rgba(94,138,255,0.12)", ...news },
-    { platform: "YouTube", icon: "Y", accent: "#FF0033", soft: "rgba(255,0,51,0.12)", ...youtube },
-    { platform: "TikTok", icon: "T", accent: "#FE2C55", soft: "rgba(254,44,85,0.12)", ...tiktok },
-  ];
 }
 
 function parseTimeValue(value?: string): number | null {
@@ -221,52 +160,46 @@ function isRecentEnough(input?: string, maxHours = 24) {
   return Date.now() - ts <= maxHours * 60 * 60 * 1000;
 }
 
-function cleanOutputText(text: string) {
-  return text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-}
-
-function extractFirstJsonObject(text: string) {
-  const cleaned = cleanOutputText(text);
-  const start = cleaned.indexOf("{");
-  if (start === -1) throw new Error("No JSON object start found");
-
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-
-  for (let i = start; i < cleaned.length; i++) {
-    const ch = cleaned[i];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (ch === "\\") {
-        escaped = true;
-      } else if (ch === `"`) {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (ch === `"`) {
-      inString = true;
-      continue;
-    }
-
-    if (ch === "{") depth++;
-    if (ch === "}") {
-      depth--;
-      if (depth === 0) {
-        return cleaned.slice(start, i + 1);
-      }
-    }
-  }
-
-  throw new Error("No complete JSON object found");
+function buildCards(
+  buckets: SocialScanModelResponse["platformBuckets"]
+): PlatformCard[] {
+  return [
+    {
+      platform: "Twitter / X",
+      icon: "X",
+      accent: "#1DA1F2",
+      soft: "rgba(29,161,242,0.12)",
+      ...buckets.x,
+    },
+    {
+      platform: "Reddit",
+      icon: "R",
+      accent: "#FF5700",
+      soft: "rgba(255,87,0,0.12)",
+      ...buckets.reddit,
+    },
+    {
+      platform: "News",
+      icon: "N",
+      accent: "#5E8AFF",
+      soft: "rgba(94,138,255,0.12)",
+      ...buckets.news,
+    },
+    {
+      platform: "YouTube",
+      icon: "Y",
+      accent: "#FF0033",
+      soft: "rgba(255,0,51,0.12)",
+      ...buckets.youtube,
+    },
+    {
+      platform: "TikTok",
+      icon: "T",
+      accent: "#FE2C55",
+      soft: "rgba(254,44,85,0.12)",
+      ...buckets.tiktok,
+    },
+  ];
 }
 
 function fallback(symbol: string, note?: string): SocialScanResponse {
@@ -275,17 +208,52 @@ function fallback(symbol: string, note?: string): SocialScanResponse {
     pulseTitle: `${symbol} — Narrative Pulse`,
     pulseSummary:
       note ||
-      `Narriv scanned public-web results for ${symbol}. Coverage is directional and live when available, but this request fell back safely instead of failing.`,
+      `Narriv scanned public-web discussion for ${symbol}, but recent indexed signal was thin or inconsistent.`,
     updated: "just now",
     chips: ["Fallback mode", "Live route", "Retry soon"],
     verdict: "Mixed / thin coverage",
     entry: 50,
     cards: buildCards({
-      x: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent discussions surfaced on X for ${symbol}.`, tags: ["thin coverage"] },
-      reddit: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent discussions surfaced on Reddit for ${symbol}.`, tags: ["thin coverage"] },
-      news: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent news items were strong enough to surface for ${symbol}.`, tags: ["thin coverage"] },
-      youtube: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent YouTube items surfaced for ${symbol}.`, tags: ["thin coverage"] },
-      tiktok: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent TikTok items surfaced for ${symbol}.`, tags: ["thin coverage"] },
+      x: {
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: `No strong recent X discussion surfaced for ${symbol}.`,
+        tags: ["thin coverage"],
+      },
+      reddit: {
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: `No strong recent Reddit discussion surfaced for ${symbol}.`,
+        tags: ["thin coverage"],
+      },
+      news: {
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: `No strong recent news discussion surfaced for ${symbol}.`,
+        tags: ["thin coverage"],
+      },
+      youtube: {
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: `No strong recent YouTube discussion surfaced for ${symbol}.`,
+        tags: ["thin coverage"],
+      },
+      tiktok: {
+        volume: "thin coverage",
+        bull: 0,
+        bear: 0,
+        neutral: 100,
+        summary: `No strong recent TikTok discussion surfaced for ${symbol}.`,
+        tags: ["thin coverage"],
+      },
     }),
     feed: [],
     voices: [],
@@ -294,7 +262,7 @@ function fallback(symbol: string, note?: string): SocialScanResponse {
     signals24h: "Few recent signals",
     attentionLabel: "Attention stable",
     attentionTake:
-      `Recent public-web signal around ${symbol} was too thin or inconsistent, so Narriv returned a safe fallback instead of erroring.`,
+      `Recent indexed discussion around ${symbol} was too thin or inconsistent to build a stronger live narrative read.`,
   };
 }
 
@@ -309,14 +277,197 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const schema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        symbol: { type: "string" },
+        pulseTitle: { type: "string" },
+        pulseSummary: { type: "string" },
+        updated: { type: "string" },
+        chips: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 3,
+          maxItems: 6,
+        },
+        verdict: { type: "string" },
+        entry: { type: "number" },
+        platformBuckets: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            x: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                volume: { type: "string" },
+                bull: { type: "number" },
+                bear: { type: "number" },
+                neutral: { type: "number" },
+                summary: { type: "string" },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 1,
+                  maxItems: 5,
+                },
+              },
+              required: ["volume", "bull", "bear", "neutral", "summary", "tags"],
+            },
+            reddit: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                volume: { type: "string" },
+                bull: { type: "number" },
+                bear: { type: "number" },
+                neutral: { type: "number" },
+                summary: { type: "string" },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 1,
+                  maxItems: 5,
+                },
+              },
+              required: ["volume", "bull", "bear", "neutral", "summary", "tags"],
+            },
+            news: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                volume: { type: "string" },
+                bull: { type: "number" },
+                bear: { type: "number" },
+                neutral: { type: "number" },
+                summary: { type: "string" },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 1,
+                  maxItems: 5,
+                },
+              },
+              required: ["volume", "bull", "bear", "neutral", "summary", "tags"],
+            },
+            youtube: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                volume: { type: "string" },
+                bull: { type: "number" },
+                bear: { type: "number" },
+                neutral: { type: "number" },
+                summary: { type: "string" },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 1,
+                  maxItems: 5,
+                },
+              },
+              required: ["volume", "bull", "bear", "neutral", "summary", "tags"],
+            },
+            tiktok: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                volume: { type: "string" },
+                bull: { type: "number" },
+                bear: { type: "number" },
+                neutral: { type: "number" },
+                summary: { type: "string" },
+                tags: {
+                  type: "array",
+                  items: { type: "string" },
+                  minItems: 1,
+                  maxItems: 5,
+                },
+              },
+              required: ["volume", "bull", "bear", "neutral", "summary", "tags"],
+            },
+          },
+          required: ["x", "reddit", "news", "youtube", "tiktok"],
+        },
+        feed: {
+          type: "array",
+          maxItems: 6,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              source: { type: "string" },
+              author: { type: "string" },
+              meta: { type: "string" },
+              tone: { type: "string", enum: ["Bullish", "Mixed", "Bearish"] },
+              headline: { type: "string" },
+              body: { type: "string" },
+              impact: { type: "number" },
+              time: { type: "string" },
+            },
+            required: [
+              "source",
+              "author",
+              "meta",
+              "tone",
+              "headline",
+              "body",
+              "impact",
+              "time",
+            ],
+          },
+        },
+        voices: {
+          type: "array",
+          maxItems: 6,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              source: { type: "string" },
+              name: { type: "string" },
+              stance: { type: "string", enum: ["Bullish", "Mixed", "Bearish"] },
+              reach: { type: "string" },
+              quote: { type: "string" },
+              time: { type: "string" },
+            },
+            required: ["source", "name", "stance", "reach", "quote", "time"],
+          },
+        },
+        velocity: { type: "string" },
+        percentile: { type: "string" },
+        signals24h: { type: "string" },
+        attentionLabel: { type: "string" },
+        attentionTake: { type: "string" },
+      },
+      required: [
+        "symbol",
+        "pulseTitle",
+        "pulseSummary",
+        "updated",
+        "chips",
+        "verdict",
+        "entry",
+        "platformBuckets",
+        "feed",
+        "voices",
+        "velocity",
+        "percentile",
+        "signals24h",
+        "attentionLabel",
+        "attentionTake",
+      ],
+    };
+
     const prompt = `
 You are generating a live public-web narrative view for the stock/asset ticker ${symbol}.
 
 The requested ticker is EXACTLY: ${symbol}
-Do not answer for NVDA, AAPL, TSLA, or any other ticker unless it is exactly ${symbol}.
+Do not answer for any other ticker.
 If coverage is thin, still stay on ${symbol} and return thin-coverage JSON for ${symbol}.
 
-Search the public web for recent, publicly indexed discussion about ${symbol}, including:
+Search recent publicly indexed web discussion for ${symbol}, including:
 - Twitter / X
 - Reddit
 - News
@@ -324,51 +475,12 @@ Search the public web for recent, publicly indexed discussion about ${symbol}, i
 - TikTok / short-form
 
 Rules:
-- Treat ${symbol} as the stock/asset/security, not an unrelated acronym.
-- Return JSON only. No markdown. No commentary outside JSON.
-- The top-level "symbol" field MUST equal "${symbol}".
-- Use EXACT platform bucket keys:
-  - x
-  - reddit
-  - news
-  - youtube
-  - tiktok
-- Feed items should be RECENT and ideally within the last 24 hours. If not enough exist, return fewer.
-- Voices should be RECENT and include a time field.
-- attentionLabel should be short and plain English.
-- attentionTake should be one simple sentence explaining what matters to an investor.
-- Keep all strings concise and readable.
-- If a platform has weak coverage, say so plainly.
-- Estimate bull/bear/neutral from the actual recent chatter you find for ${symbol}.
-
-Return this shape exactly:
-{
-  "symbol": "${symbol}",
-  "pulseTitle": "string",
-  "pulseSummary": "string",
-  "updated": "string",
-  "chips": ["string"],
-  "verdict": "string",
-  "entry": 50,
-  "platformBuckets": {
-    "x": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
-    "reddit": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
-    "news": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
-    "youtube": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] },
-    "tiktok": { "volume": "string", "bull": 0, "bear": 0, "neutral": 100, "summary": "string", "tags": ["string"] }
-  },
-  "feed": [
-    { "source": "string", "author": "string", "meta": "string", "tone": "Bullish", "headline": "string", "body": "string", "impact": 50, "time": "string" }
-  ],
-  "voices": [
-    { "source": "string", "name": "string", "stance": "Bullish", "reach": "string", "quote": "string", "time": "string" }
-  ],
-  "velocity": "string",
-  "percentile": "string",
-  "signals24h": "string",
-  "attentionLabel": "string",
-  "attentionTake": "string"
-}
+- The top-level symbol field MUST equal "${symbol}".
+- Estimate bull / bear / neutral from actual recent chatter for ${symbol}.
+- Feed items should be recent, ideally within 24 hours.
+- Voice items should be recent and include a time field.
+- Keep pulseSummary to 2-4 sentences.
+- Be specific and honest about thin coverage.
 `.trim();
 
     const res = await fetch("https://api.openai.com/v1/responses", {
@@ -383,6 +495,14 @@ Return this shape exactly:
         tools: [{ type: "web_search" }],
         tool_choice: "auto",
         max_output_tokens: 2200,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "narriv_social_scan",
+            strict: true,
+            schema,
+          },
+        },
       }),
     });
 
@@ -410,72 +530,37 @@ Return this shape exactly:
       );
     }
 
-    let parsed: SocialScanModelResponse;
-    try {
-      parsed = JSON.parse(extractFirstJsonObject(outputText)) as SocialScanModelResponse;
-    } catch (err) {
-      console.error("social-scan parse error:", err, outputText);
+    const parsed = JSON.parse(outputText) as SocialScanModelResponse;
+
+    if (s(parsed.symbol).toUpperCase() !== symbol) {
       return NextResponse.json(
-        fallback(symbol, "Narrative output could not be parsed cleanly."),
+        fallback(symbol, `Symbol mismatch from model output for ${symbol}.`),
         { status: 200 }
       );
     }
 
-    const resolvedSymbol = s(parsed.symbol, symbol).toUpperCase();
-    if (resolvedSymbol !== symbol) {
-      console.error("social-scan symbol mismatch:", { requested: symbol, returned: resolvedSymbol });
-      return NextResponse.json(
-        fallback(symbol, `Symbol mismatch from model output. Requested ${symbol}, got ${resolvedSymbol}.`),
-        { status: 200 }
-      );
-    }
-
-    const rawFeed: FeedItem[] = Array.isArray(parsed.feed)
-      ? parsed.feed.slice(0, 12).map((item) => ({
-          source: s(item.source, "Source"),
-          author: s(item.author, "Unknown"),
-          meta: s(item.meta),
-          tone: normalizeTone(item.tone),
-          headline: s(item.headline, "Recent item"),
-          body: s(item.body),
-          impact: clampPercent(item.impact, 50),
-          time: s(item.time, "recently"),
-        }))
-      : [];
-
-    const feed = rawFeed
+    const feed = (parsed.feed || [])
       .filter((item) => isRecentEnough(item.time, 24))
-      .slice(0, 6)
       .map((item) => ({
         ...item,
+        tone: normalizeTone(item.tone),
+        impact: clampPercent(item.impact, 50),
         time: formatRelativeTime(item.time),
-      }));
+      }))
+      .slice(0, 6);
 
-    const rawVoices: VoiceItem[] = Array.isArray(parsed.voices)
-      ? parsed.voices.slice(0, 12).map((voice) => ({
-          source: s(voice.source, "Source"),
-          name: s(voice.name, "Unknown"),
-          stance: normalizeTone(voice.stance),
-          reach: s(voice.reach),
-          quote: s(voice.quote),
-          time: s(voice.time, "recently"),
-        }))
-      : [];
-
-    const voices = rawVoices
-      .filter((voice) => isRecentEnough(voice.time, 72))
-      .slice(0, 6)
-      .map((voice) => ({
-        ...voice,
-        time: formatRelativeTime(voice.time),
-      }));
+    const voices = (parsed.voices || [])
+      .filter((item) => isRecentEnough(item.time, 72))
+      .map((item) => ({
+        ...item,
+        stance: normalizeTone(item.stance),
+        time: formatRelativeTime(item.time),
+      }))
+      .slice(0, 6);
 
     const response: SocialScanResponse = {
       symbol,
-      pulseTitle:
-        s(parsed.pulseTitle) && s(parsed.pulseTitle).includes(symbol)
-          ? s(parsed.pulseTitle)
-          : `${symbol} — Narrative Pulse`,
+      pulseTitle: s(parsed.pulseTitle, `${symbol} — Narrative Pulse`),
       pulseSummary: s(
         parsed.pulseSummary,
         `Narriv scanned recent public-web discussion around ${symbol}.`
@@ -486,7 +571,38 @@ Return this shape exactly:
         : [],
       verdict: s(parsed.verdict, "Mixed"),
       entry: clampEntry(parsed.entry),
-      cards: buildCards(parsed.platformBuckets),
+      cards: buildCards({
+        x: {
+          ...parsed.platformBuckets.x,
+          bull: clampPercent(parsed.platformBuckets.x.bull),
+          bear: clampPercent(parsed.platformBuckets.x.bear),
+          neutral: clampPercent(parsed.platformBuckets.x.neutral),
+        },
+        reddit: {
+          ...parsed.platformBuckets.reddit,
+          bull: clampPercent(parsed.platformBuckets.reddit.bull),
+          bear: clampPercent(parsed.platformBuckets.reddit.bear),
+          neutral: clampPercent(parsed.platformBuckets.reddit.neutral),
+        },
+        news: {
+          ...parsed.platformBuckets.news,
+          bull: clampPercent(parsed.platformBuckets.news.bull),
+          bear: clampPercent(parsed.platformBuckets.news.bear),
+          neutral: clampPercent(parsed.platformBuckets.news.neutral),
+        },
+        youtube: {
+          ...parsed.platformBuckets.youtube,
+          bull: clampPercent(parsed.platformBuckets.youtube.bull),
+          bear: clampPercent(parsed.platformBuckets.youtube.bear),
+          neutral: clampPercent(parsed.platformBuckets.youtube.neutral),
+        },
+        tiktok: {
+          ...parsed.platformBuckets.tiktok,
+          bull: clampPercent(parsed.platformBuckets.tiktok.bull),
+          bear: clampPercent(parsed.platformBuckets.tiktok.bear),
+          neutral: clampPercent(parsed.platformBuckets.tiktok.neutral),
+        },
+      }),
       feed,
       voices,
       velocity: s(parsed.velocity, feed.length > 2 ? "Elevated" : "Stable"),
