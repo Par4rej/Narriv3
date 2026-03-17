@@ -162,41 +162,11 @@ function buildCards(
   const tiktok = normalizeBucket(buckets?.tiktok);
 
   return [
-    {
-      platform: "Twitter / X",
-      icon: "X",
-      accent: "#1DA1F2",
-      soft: "rgba(29,161,242,0.12)",
-      ...x,
-    },
-    {
-      platform: "Reddit",
-      icon: "R",
-      accent: "#FF5700",
-      soft: "rgba(255,87,0,0.12)",
-      ...reddit,
-    },
-    {
-      platform: "News",
-      icon: "N",
-      accent: "#5E8AFF",
-      soft: "rgba(94,138,255,0.12)",
-      ...news,
-    },
-    {
-      platform: "YouTube",
-      icon: "Y",
-      accent: "#FF0033",
-      soft: "rgba(255,0,51,0.12)",
-      ...youtube,
-    },
-    {
-      platform: "TikTok",
-      icon: "T",
-      accent: "#FE2C55",
-      soft: "rgba(254,44,85,0.12)",
-      ...tiktok,
-    },
+    { platform: "Twitter / X", icon: "X", accent: "#1DA1F2", soft: "rgba(29,161,242,0.12)", ...x },
+    { platform: "Reddit", icon: "R", accent: "#FF5700", soft: "rgba(255,87,0,0.12)", ...reddit },
+    { platform: "News", icon: "N", accent: "#5E8AFF", soft: "rgba(94,138,255,0.12)", ...news },
+    { platform: "YouTube", icon: "Y", accent: "#FF0033", soft: "rgba(255,0,51,0.12)", ...youtube },
+    { platform: "TikTok", icon: "T", accent: "#FE2C55", soft: "rgba(254,44,85,0.12)", ...tiktok },
   ];
 }
 
@@ -311,46 +281,11 @@ function fallback(symbol: string, note?: string): SocialScanResponse {
     verdict: "Mixed / thin coverage",
     entry: 50,
     cards: buildCards({
-      x: {
-        volume: "thin coverage",
-        bull: 0,
-        bear: 0,
-        neutral: 100,
-        summary: "No recent discussions surfaced on X.",
-        tags: ["thin coverage"],
-      },
-      reddit: {
-        volume: "thin coverage",
-        bull: 0,
-        bear: 0,
-        neutral: 100,
-        summary: "No recent discussions surfaced on Reddit.",
-        tags: ["thin coverage"],
-      },
-      news: {
-        volume: "thin coverage",
-        bull: 0,
-        bear: 0,
-        neutral: 100,
-        summary: "No recent news items were strong enough to surface.",
-        tags: ["thin coverage"],
-      },
-      youtube: {
-        volume: "thin coverage",
-        bull: 0,
-        bear: 0,
-        neutral: 100,
-        summary: "No recent YouTube items surfaced.",
-        tags: ["thin coverage"],
-      },
-      tiktok: {
-        volume: "thin coverage",
-        bull: 0,
-        bear: 0,
-        neutral: 100,
-        summary: "No recent TikTok items surfaced.",
-        tags: ["thin coverage"],
-      },
+      x: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent discussions surfaced on X for ${symbol}.`, tags: ["thin coverage"] },
+      reddit: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent discussions surfaced on Reddit for ${symbol}.`, tags: ["thin coverage"] },
+      news: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent news items were strong enough to surface for ${symbol}.`, tags: ["thin coverage"] },
+      youtube: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent YouTube items surfaced for ${symbol}.`, tags: ["thin coverage"] },
+      tiktok: { volume: "thin coverage", bull: 0, bear: 0, neutral: 100, summary: `No recent TikTok items surfaced for ${symbol}.`, tags: ["thin coverage"] },
     }),
     feed: [],
     voices: [],
@@ -359,7 +294,7 @@ function fallback(symbol: string, note?: string): SocialScanResponse {
     signals24h: "Few recent signals",
     attentionLabel: "Attention stable",
     attentionTake:
-      "Recent public-web signal was too thin or inconsistent, so Narriv returned a safe fallback instead of erroring.",
+      `Recent public-web signal around ${symbol} was too thin or inconsistent, so Narriv returned a safe fallback instead of erroring.`,
   };
 }
 
@@ -377,6 +312,10 @@ export async function GET(req: NextRequest) {
     const prompt = `
 You are generating a live public-web narrative view for the stock/asset ticker ${symbol}.
 
+The requested ticker is EXACTLY: ${symbol}
+Do not answer for NVDA, AAPL, TSLA, or any other ticker unless it is exactly ${symbol}.
+If coverage is thin, still stay on ${symbol} and return thin-coverage JSON for ${symbol}.
+
 Search the public web for recent, publicly indexed discussion about ${symbol}, including:
 - Twitter / X
 - Reddit
@@ -387,6 +326,7 @@ Search the public web for recent, publicly indexed discussion about ${symbol}, i
 Rules:
 - Treat ${symbol} as the stock/asset/security, not an unrelated acronym.
 - Return JSON only. No markdown. No commentary outside JSON.
+- The top-level "symbol" field MUST equal "${symbol}".
 - Use EXACT platform bucket keys:
   - x
   - reddit
@@ -399,11 +339,11 @@ Rules:
 - attentionTake should be one simple sentence explaining what matters to an investor.
 - Keep all strings concise and readable.
 - If a platform has weak coverage, say so plainly.
-- Estimate bull/bear/neutral from the actual recent chatter you find for this asset.
+- Estimate bull/bear/neutral from the actual recent chatter you find for ${symbol}.
 
 Return this shape exactly:
 {
-  "symbol": "string",
+  "symbol": "${symbol}",
   "pulseTitle": "string",
   "pulseSummary": "string",
   "updated": "string",
@@ -477,6 +417,15 @@ Return this shape exactly:
       console.error("social-scan parse error:", err, outputText);
       return NextResponse.json(
         fallback(symbol, "Narrative output could not be parsed cleanly."),
+        { status: 200 }
+      );
+    }
+
+    const resolvedSymbol = s(parsed.symbol, symbol).toUpperCase();
+    if (resolvedSymbol !== symbol) {
+      console.error("social-scan symbol mismatch:", { requested: symbol, returned: resolvedSymbol });
+      return NextResponse.json(
+        fallback(symbol, `Symbol mismatch from model output. Requested ${symbol}, got ${resolvedSymbol}.`),
         { status: 200 }
       );
     }
